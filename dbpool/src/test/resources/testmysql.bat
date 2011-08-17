@@ -1,0 +1,1 @@
+java -cp .;..\classes;log4j-1.2.16.jar;mysql-connector-java-5.1.16.jar;junit-4.8.1.jar net.java.fwutil.dbpool.RunMySQL

@@ -1,0 +1,21 @@
+Global setup:
+
+git config --global user.name "InterCommIT"
+git config --global user.email fwiers@intercommit.nl
+
+New repo:
+
+mkdir DbPool
+cd DbPool
+git init
+touch README.md
+git add README.md
+git commit -m 'first commit'
+git remote add origin git@github.com:intercommit/DbPool.git
+git push -u origin master
+
+Existing Git Repo?
+
+cd existing_git_repo
+git remote add origin git@github.com:intercommit/DbPool.git
+git push -u origin master
