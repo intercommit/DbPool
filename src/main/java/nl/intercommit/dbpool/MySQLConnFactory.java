@@ -13,7 +13,7 @@
 *  GNU Lesser General Public License for more details.
 *
 *  You should have received a copy of the GNU Lesser General Public License
-*  along with Weaves.  If not, see <http://www.gnu.org/licenses/>.
+*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
 *
 */
 package nl.intercommit.dbpool;
@@ -52,6 +52,16 @@ public class MySQLConnFactory implements DbConnFactory {
 		// Prevent waiting forever for an answer to a query, wait a max. of 150 seconds.
 		// Note: this is a fallback, use Statement.setQueryTimeout() for better query time-out.
 		mysqlProps.setProperty("socketTimeout", "150000");
+		// Omit unnecessary commit() and rollback() calls.
+		mysqlProps.setProperty("useLocalSessionState", "true");
+		// Omit unnecessary "set autocommit n" calls (needed for Hibernate).
+		mysqlProps.setProperty("elideSetAutoCommits", "true");
+		// Fetch database meta-data from modern place.
+		mysqlProps.setProperty("useInformationSchema", "true");
+		// Prevent date-errors when fetching dates (needed for Hibernate with MyISAM).
+		mysqlProps.setProperty("useFastDateParsing", "false");
+		// In case of failover, do not set the connection to read-only.
+		mysqlProps.setProperty("failOverReadOnly", "false");
 	}
 	
 	public synchronized void initialize() {
@@ -75,6 +85,7 @@ public class MySQLConnFactory implements DbConnFactory {
 			dbConn = DriverManager.getConnection(dbUrl, mysqlProps);
 			dbConn.setAutoCommit(autoCommit);
 			dbConn.setTransactionIsolation(transactionIsolation);
+			//System.out.println("MySQL connection class: " + dbConn.getClass().getName());
 			OK = true;
 		} finally {
 			if (!OK) close(dbConn, false);

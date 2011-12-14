@@ -13,7 +13,7 @@
 *  GNU Lesser General Public License for more details.
 *
 *  You should have received a copy of the GNU Lesser General Public License
-*  along with Weaves.  If not, see <http://www.gnu.org/licenses/>.
+*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
 *
 */
 package nl.intercommit.dbpool;
@@ -39,7 +39,7 @@ public class DbTask implements Runnable {
 	public static int queryTimeOutSeconds;
 	
 	Logger log = Logger.getLogger(getClass());
-	DbConn db;
+	DbConnTimed db;
 	boolean stop;
 	Thread runningThread;
 	int taskId;
@@ -47,7 +47,7 @@ public class DbTask implements Runnable {
 	
 	public DbTask(DbPool pool) {
 		super();
-		db = new DbConn(pool);
+		db = new DbConnTimed(pool);
 		taskId = taskCount.incrementAndGet();
 	}
 	

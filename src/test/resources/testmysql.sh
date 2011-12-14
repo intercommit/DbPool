@@ -1,1 +1,7 @@
-java -cp .:../classes:log4j-1.2.16.jar:mysql-connector-java-5.1.16.jar:junit-4.8.1.jar net.java.fwutil.dbpool.RunMySQL
+#!/bin/bash
+JAVAPAR="-Duser.timezone=Europe/Amsterdam" 
+for i in `ls ../lib/*.jar`; do
+	CLASSPATH=$i:$CLASSPATH
+done
+CLASSPATH=.:../classes:$CLASSPATH
+java $JAVAPAR -cp $CLASSPATH nl.intercommit.dbpool.RunMySQL "$@"

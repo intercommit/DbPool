@@ -13,7 +13,7 @@
 *  GNU Lesser General Public License for more details.
 *
 *  You should have received a copy of the GNU Lesser General Public License
-*  along with Weaves.  If not, see <http://www.gnu.org/licenses/>.
+*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
 *
 */
 package nl.intercommit.dbpool;
@@ -24,6 +24,14 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+/** A thread running in the background that frequently checks if connections
+ * are returned to the pool within the maxLeaseTimMs.
+ * If a lease-time has expired, a warning is logged with a stack-trace of the (presumably hanging) thread.
+ * The lease-time is then reset so that this warning will appear every max-lease-time period until 
+ * the database connection is released back into the pool.
+ * @author frederikw
+ *
+ */
 public class DbPoolLeaseWatcher implements Runnable {
 
 	protected Logger log = Logger.getLogger(getClass());
@@ -33,6 +41,11 @@ public class DbPoolLeaseWatcher implements Runnable {
 	protected volatile boolean stop;
 	public int expiredCount;
 	public long watchInterval = 1000L;
+	/** 
+	 * If true, threads that hold on to a database connection for longer 
+	 * then the maxLeaseTimeMs, will get interrupted. Should only be used
+	 * during testing, not during production.  
+	 */
 	public boolean interrupt;
 
 	public DbPoolLeaseWatcher(Map<Connection, PooledConnection> connections) {
@@ -59,13 +72,18 @@ public class DbPoolLeaseWatcher implements Runnable {
 						if (interrupt) t.interrupt();
 						pc.resetWaitStart();
 						expiredCount++;
-						StringBuilder sb = new StringBuilder("\nStack trace:\n");
+						
+						StringBuilder sb = new StringBuilder("Lease time (");
+						sb.append(pc.getMaxLeaseTimeMs()).append(") expired for pooled database connection used by thread ");
+						sb.append(t.toString());
+						if (interrupt) sb.append(". Thread was interrupted.");
+						sb.append("\nStack trace from thread:\n");
 						for (StackTraceElement st : tstack) {
 							sb.append(st.getClassName())
 							.append("(").append(st.getMethodName())
 							.append(":").append(st.getLineNumber()).append(")\n");
 						}
-						log.warn("Lease time (" + pc.getMaxLeaseTimeMs() +") expired, interrupted thread: " + t + sb.toString());
+						log.warn(sb.toString());
 					}
 				}
 				if (!stop) Thread.sleep(watchInterval);

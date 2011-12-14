@@ -13,7 +13,7 @@
 *  GNU Lesser General Public License for more details.
 *
 *  You should have received a copy of the GNU Lesser General Public License
-*  along with Weaves.  If not, see <http://www.gnu.org/licenses/>.
+*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
 *
 */
 package nl.intercommit.dbpool;
@@ -22,6 +22,8 @@ import java.sql.Connection;
 
 import org.apache.log4j.Logger;
 
+/** A helper class for DbPool which keeps track of several pool-properties for a database connection. 
+ * Most of these properties are used by the DbPoolLeaseWatcher. */
 public class PooledConnection {
 
 	protected Logger log = Logger.getLogger(getClass());

@@ -13,7 +13,7 @@
 *  GNU Lesser General Public License for more details.
 *
 *  You should have received a copy of the GNU Lesser General Public License
-*  along with Weaves.  If not, see <http://www.gnu.org/licenses/>.
+*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
 *
 */
 package nl.intercommit.dbpool;
@@ -46,9 +46,39 @@ public class TestDbPools {
 	}
 	
 	public static String createTable = "create table t (id integer generated always as identity(start with 100) primary key, name varchar(256))";
+	public static String deleteTable = "drop table t";
 	public static String insertRecord = "insert into t (name) values (@name)";
 	public static String selectRecord = "select id from t where name like @name";
 	
+	/** Deletes any created tables. */
+	public static void clearDbInMem(DbPool pool) {
+		
+		DbConn db = new DbConn(pool);
+		try {
+			db.setQuery(deleteTable);
+			db.ps.execute();
+			db.conn.commit();
+		} catch (Exception ignored) {
+		} finally {
+			db.close();
+		}
+	}
+
+	/** Creates required tables. */
+	public static void initDbInMem(DbPool pool) throws SQLException {
+		
+		clearDbInMem(pool);
+		DbConn db = new DbConn(pool);
+		try {
+			db.setQuery(createTable);
+			db.ps.execute();
+			db.conn.commit();
+		} finally {
+			db.close();
+		}
+	}
+
+	/** Use one connection to create a table and insert a record. */
 	@Test
 	public void testDbInMem() {
 		
@@ -57,10 +87,11 @@ public class TestDbPools {
 		DbConn db = null;
 		try {
 			pool.open(true);
+			clearDbInMem(pool);
 			db = new DbConn(pool);
-			db.setNQuery(createTable);
-			assertFalse("Table creation.", db.nps.execute());
-			db.nps.close();
+			db.setQuery(createTable);
+			assertFalse("Table creation.", db.ps.execute());
+			db.ps.close();
 			db.setNQuery(insertRecord, Statement.RETURN_GENERATED_KEYS);
 			db.nps.setString("name", "Frederik");
 			assertEquals("Insert 1 record.", 1, db.nps.executeUpdate());
@@ -68,7 +99,7 @@ public class TestDbPools {
 			assertTrue("Have a result.", db.rs.next());
 			assertEquals("Generated id value.", 100, db.rs.getInt("id"));
 			db.conn.commit();
-		} catch (SQLException se) {
+		} catch (Exception se) {
 			se.printStackTrace();
 			throw new AssertionError("DbInMem test failed with: " + se);
 		} finally {
@@ -77,6 +108,12 @@ public class TestDbPools {
 		}
 	}
 
+	/** Runs tasks that perform database actions.
+	 * There are more tasks then database connections so tasks must wait for 
+	 * a database connection to become available.
+	 * At the end of the test time-statistics are shown for each task. These numbers
+	 * should, on average, be about the same.
+	 */
 	@Test
 	public void testDbTasks() {
 		
@@ -91,16 +128,11 @@ public class TestDbPools {
 		DbTask.numberOfInserts = 3;
 		DbTask.numberOfSearches = 3;
 		DbTask.querySearchKeySize = 3;
-		DbConn db = null;
+		//DbConn db = null;
 		DbTask[] tasks = new DbTask[taskCount];
 		try {
 			pool.open(true);
-			/*
-			db = new DbSource(pool);
-			db.setNQuery(createTable);
-			assertFalse("Table creation.", db.nps.execute());
-			db.close();
-			*/
+			initDbInMem(pool);
 			for (int i = 0; i < taskCount; i++) {
 				tasks[i] = new DbTask(pool);
 				pool.execute(tasks[i], true);
@@ -121,18 +153,16 @@ public class TestDbPools {
 					}
 				}
 			}
-		} catch (SQLException se) {
+		} catch (Exception se) {
 			se.printStackTrace();
 			throw new AssertionError("DbTask test failed with " + se);
-		} catch (InterruptedException ie) {
-			ie.printStackTrace();
-			throw new AssertionError("DbTask test failed with " + ie);
 		} finally {
-			if (db != null) db.close();
+			//if (db != null) db.close();
 			pool.close();
 		}
 	}
 
+	/** Returns a random string with given length containing a-z characters. */
 	public static String str(int length) {
 		StringBuilder sb = new StringBuilder("");
 		for (int i = 0; i < length; i++) {
@@ -142,6 +172,7 @@ public class TestDbPools {
 		return sb.toString();
 	}
 	
+	/** Returns a random number as String with the given length. */
 	public static String num(int length) {
 		if (length == 0) return "";
 		StringBuilder sb = new StringBuilder("1");

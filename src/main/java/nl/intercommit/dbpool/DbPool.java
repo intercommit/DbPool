@@ -13,7 +13,7 @@
 *  GNU Lesser General Public License for more details.
 *
 *  You should have received a copy of the GNU Lesser General Public License
-*  along with Weaves.  If not, see <http://www.gnu.org/licenses/>.
+*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
 *
 */
 package nl.intercommit.dbpool;
@@ -32,16 +32,27 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Logger;
 
+/**
+ * Manages database connections in a pool.
+ * Before usage, a db connection factory must be set and open must be called.
+ * @author frederikw
+ *
+ */
 public class DbPool {
 
 	protected Logger log = Logger.getLogger(getClass());
-	public DbConnFactory dbConnFactory;
 	
+	/** Minimum amount of connections in the pool. Default 1. */
 	public int minSize = 1;
+	/** Maximum amount of connections in the pool. Default 10. */
 	public int maxSize = 10;
+	/** Maximum time a connection can be leased. Default 0 (forever). */
 	public long maxLeaseTimeMs;
+	/** The frequency at which the lease-time watcher will check for expired leases. */
 	public long leaseTimeWatchIntervalMs = 1000L;
+	/** The maximum time it may take to get a connection from the pool. */
 	public long maxAcquireTimeMs = 50000L;
+	/** Number of connections created. */
 	public AtomicLong connectionsCreated = new AtomicLong();
 	
 	protected Map<Connection, PooledConnection> connections = new ConcurrentHashMap<Connection, PooledConnection>();
@@ -56,7 +67,7 @@ public class DbPool {
 	public void setFactory(DbConnFactory cf) { connFactory = cf; }
 	
 	/** 
-	 * Used to start the timeOutWatcher (only when maxLeaseTimeMs is bigger as 0)
+	 * Used to start the timeOutWatcher (only when maxLeaseTimeMs is larger as 0)
 	 */
 	public void execute(Runnable r, boolean daemon) { 
 		
@@ -70,8 +81,8 @@ public class DbPool {
 	 * starts the connection lease watcher if maxLeaseTimeMs > 0. 
 	 * @param failOnConnectionError If true, a SQLException is thrown when the minimum amount 
 	 * of connections to the database could not be created (else an error is logged but the pool is opened).
-	 * @throws SQLException When the pool could not be opened, was previously closed 
-	 * or no connection factory was set.
+	 * @throws SQLException When the pool was previously closed 
+	 * or no connection factory was set. Otherwise, when failOnConnectionError is false, this error is not thrown.  
 	 */
 	public void open(boolean failOnConnectionError) throws SQLException {
 		
@@ -98,13 +109,22 @@ public class DbPool {
 		}
 	}
 	
+	public DbPoolLeaseWatcher getWatcher() { return timeOutWatcher; }
+	/** Relative expensive operation, do not call to often. */
+	public int getCountIdleConnections() { return idleConnections.size(); }
+	/** Amount of connections in the pool. */
+	public int getCountOpenConnections() { return connectionCount.get(); }
+	
+	/** Gets a connection from the pool within maxAcquireTimeMs. Sets maxLeaseTimeMs for the pooled connection. */
 	public Connection acquire() throws SQLException { 
 		return acquire(maxAcquireTimeMs, maxLeaseTimeMs); 
 	}
+	/** Gets a connection from the pool within acquireTimeOutMs. Sets maxLeaseTimeMs for the pooled connection. */
 	public Connection acquire(final long acquireTimeOutMs) throws SQLException{ 
 		return acquire(acquireTimeOutMs, maxLeaseTimeMs); 
 	}
 	
+	/** Gets a connection from the pool within acquireTimeOutMs. Sets leaseTimeOutMs for the pooled connection. */
 	public Connection acquire(final long acquireTimeOutMs, final long leaseTimeOutMs) throws SQLException { 
 		
 		if (closed) throw new SQLException("Database pool is closed.");
@@ -178,23 +198,25 @@ public class DbPool {
 		
 		if (!pc.isDirty()) pc.dirty();
 		connections.remove(pc.dbConn);
-		close(pc.dbConn);
+		close(pc.dbConn, true);
 	}
 	
-	public void close(final Connection conn) {
+	/** Uses the factory to close the given database connection. */
+	protected void close(final Connection conn, final boolean wasPooled) {
 
 		connFactory.close(conn);
-		connectionCount.decrementAndGet();
+		if (wasPooled) connectionCount.decrementAndGet();
 		if (log.isDebugEnabled()) log.debug("Closed database connection " + conn + " for " + connFactory + ", remaining connections: " + connectionCount.get());
 	}
 	
+	/** Releases the connection back into the pool so that another thread may use it. */
 	public void release(final Connection dbConn) {
 		
 		if (dbConn == null) return;
 		final PooledConnection pc = connections.get(dbConn);
 		if (pc == null) {
 			log.error("Cannot release a database connection that is not in the pool: " + dbConn);
-			close(dbConn);
+			close(dbConn, false);
 			return;
 		}
 		if (!pc.isLeased()) {
@@ -241,14 +263,17 @@ public class DbPool {
 	/**
 	 * Closes this pool and immediately closes all connections (blocks until all connections are closed).
 	 */
-	public void close() {
+	public synchronized void close() {
 		
 		if (!closed) closed();
 		if (timeOutWatcher != null) timeOutWatcher.stop();
 		Iterator<PooledConnection> pcs = connections.values().iterator();
+		int closedConnections = 0;
 		while (pcs.hasNext()) {
-			close(pcs.next().dbConn);
+			close(pcs.next().dbConn, true);
+			closedConnections++;
 		}
-		log.info("Closed database connection pool for " + connFactory + ", total connections created: " + connectionsCreated.get());
+		connections.clear();
+		log.info("Closed " + closedConnections + " database connection(s) for pool " + connFactory + ", total connections created: " + connectionsCreated.get());
 	}
 }

@@ -13,7 +13,7 @@
 *  GNU Lesser General Public License for more details.
 *
 *  You should have received a copy of the GNU Lesser General Public License
-*  along with Weaves.  If not, see <http://www.gnu.org/licenses/>.
+*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
 *
 */
 package nl.intercommit.dbpool;
@@ -21,10 +21,15 @@ package nl.intercommit.dbpool;
 import java.sql.Connection;
 import java.sql.SQLException;
 
+/** Interface for a database connection factory, required by DbPool. */
 public interface DbConnFactory {
 
+	/** Returns a new database connection. */ 
 	Connection getConnection() throws SQLException;
+	/** Validates a database connection. */
 	void validate(Connection dbConn) throws SQLException;
+	/** Closes a database connection. */
 	void close(Connection dbConn);
+	/** Closes a database connection, tries to perform a rollback if rollback is true. */
 	void close(Connection dbConn, boolean rollback);
 }
