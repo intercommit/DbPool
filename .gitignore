@@ -1,2 +1,3 @@
-/dbpool.log
-/target
+!.gitignore
+.*
+target/**
