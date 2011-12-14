@@ -110,10 +110,12 @@ public class DbPool {
 	}
 	
 	public DbPoolLeaseWatcher getWatcher() { return timeOutWatcher; }
-	/** Relative expensive operation, do not call to often. */
-	public int getCountIdleConnections() { return idleConnections.size(); }
+	/** Amount of connections available for usage (i.e. ready to be acquired). */
+	public int getCountIdleConnections() { return connLeaser.availablePermits(); }
 	/** Amount of connections in the pool. */
 	public int getCountOpenConnections() { return connectionCount.get(); }
+	/** Amount of connections being used (i.e. waiting for release). */
+	public int getCountUsedConnections() { return connectionCount.get() - connLeaser.availablePermits(); }
 	
 	/** Gets a connection from the pool within maxAcquireTimeMs. Sets maxLeaseTimeMs for the pooled connection. */
 	public Connection acquire() throws SQLException { 
