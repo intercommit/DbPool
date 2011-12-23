@@ -65,7 +65,7 @@ public class RunMySQL {
 		pool.maxSize = Integer.valueOf(dbprops.getProperty("db.pool.maxConnections", "3"));
 		pool.setFactory(dbuser);
 		pool.maxLeaseTimeMs = Long.valueOf(dbprops.getProperty("db.pool.maxLeaseTimeMs", "0"));
-		pool.leaseTimeWatchIntervalMs = Long.valueOf(dbprops.getProperty("db.pool.leaseTimeWatchIintervalMs", "30000"));
+		pool.timeOutWatchIntervalMs = Long.valueOf(dbprops.getProperty("db.pool.leaseTimeWatchIintervalMs", "30000"));
 		
 		int taskCount = Integer.valueOf(dbprops.getProperty("maxClients", "4"));
 		DbTask.queryTimeOutSeconds = Integer.valueOf(dbprops.getProperty("queryTimeOutSeconds", "0"));

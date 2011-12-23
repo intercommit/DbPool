@@ -22,13 +22,12 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Logger;
 
@@ -48,19 +47,25 @@ public class DbPool {
 	public int maxSize = 10;
 	/** Maximum time a connection can be leased. Default 0 (forever). */
 	public long maxLeaseTimeMs;
-	/** The frequency at which the lease-time watcher will check for expired leases. */
-	public long leaseTimeWatchIntervalMs = 1000L;
+	/** Maximum time a connection can be idle. Default 1 minute. Value 0 means no idle time out. */
+	public long maxIdleTimeMs = 60000L;
+	/** The frequency at which the time-out watcher will check for expired leases and idle connections. */
+	public long timeOutWatchIntervalMs = 1000L;
 	/** The maximum time it may take to get a connection from the pool. */
 	public long maxAcquireTimeMs = 50000L;
 	/** Number of connections created. */
 	public AtomicLong connectionsCreated = new AtomicLong();
 	
+	/** All connections in the pool. */
 	protected Map<Connection, PooledConnection> connections = new ConcurrentHashMap<Connection, PooledConnection>();
-	protected Queue<PooledConnection> idleConnections = new ConcurrentLinkedQueue<PooledConnection>();
+	/** A LIFO queue containing connections ready to be leased. */
+	protected LinkedBlockingDeque<PooledConnection> idleConnections = new LinkedBlockingDeque<PooledConnection>();
+	/** Manages permits for leasing connections. Permits are released evenly among requestors. */ 
 	protected Semaphore connLeaser = new Semaphore(0, true);
+	/** Amount of connections in the pool, use instead of connections.size() which is slow. */
 	protected final AtomicInteger connectionCount = new AtomicInteger(); 
 	protected DbConnFactory connFactory;
-	protected DbPoolLeaseWatcher timeOutWatcher;
+	protected DbPoolTimeOutWatcher timeOutWatcher;
 	protected volatile boolean closed;
 	
 	public DbConnFactory getFactory() { return connFactory; }
@@ -96,20 +101,21 @@ public class DbPool {
 			}
 		} catch (SQLException sqle) {
 			if (failOnConnectionError) {
+				log.error("Failed to open database pool with connection factory " + connFactory + ". SQL error: " + sqle);
 				PooledConnection[] pcs = connections.values().toArray(new PooledConnection[0]);
 				for (PooledConnection pc : pcs) removePooledConnection(pc);
 				throw sqle;
 			}
-			log.error("Could not initialize minimum amount of connections for database pool (acquired " + i + " of " + minSize +").", sqle);
+			log.error("Could not initialize minimum amount of connections for database pool (acquired " + i + " of " + minSize +")." +
+					" Used connection factory: " + connFactory, sqle);
 		}
-		if (maxLeaseTimeMs > 0L) {
-			timeOutWatcher = new DbPoolLeaseWatcher(connections);
-			timeOutWatcher.watchInterval = leaseTimeWatchIntervalMs;
+		if (maxLeaseTimeMs > 0L || maxIdleTimeMs > 0L) {
+			timeOutWatcher = new DbPoolTimeOutWatcher(this);
 			execute(timeOutWatcher, true);
 		}
 	}
 	
-	public DbPoolLeaseWatcher getWatcher() { return timeOutWatcher; }
+	public DbPoolTimeOutWatcher getWatcher() { return timeOutWatcher; }
 	/** Amount of connections available for usage (i.e. ready to be acquired). */
 	public int getCountIdleConnections() { return connLeaser.availablePermits(); }
 	/** Amount of connections in the pool. */
@@ -196,6 +202,7 @@ public class DbPool {
 		return pc;
 	}
 	
+	/** Removes a connection from the pool that is in leased state. */
 	protected void removePooledConnection(final PooledConnection pc) {
 		
 		if (!pc.isDirty()) pc.dirty();
@@ -229,7 +236,7 @@ public class DbPool {
 		if (pc.isDirty()) {
 			removePooledConnection(pc);
 		} else {
-			idleConnections.add(pc);
+			idleConnections.addFirst(pc);
 			connLeaser.release();
 		}
 	}

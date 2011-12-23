@@ -9,6 +9,8 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 import org.junit.Test;
 
+import static nl.intercommit.dbpool.TestUtil.*;
+
 public class TestHibernate {
 
 	protected Logger log = Logger.getLogger(getClass());
@@ -38,12 +40,12 @@ public class TestHibernate {
 		Session session = null;
 		try {
 			pool.open(true);
-			TestDbPools.clearDbInMem(pool);
+			clearDbInMem(pool);
 			// To see all Hibernate info, set log-level for the "org" category to INFO instead of WARN.
 			sessionFactory = configuration.buildSessionFactory();
 			assertEquals("Database connections must not be used", 1, pool.getCountIdleConnections());
 			session = sessionFactory.openSession();
-			session.createSQLQuery(TestDbPools.createTable).executeUpdate();
+			session.createSQLQuery(createTable).executeUpdate();
 			T t = new T();
 			t.setName("Frederik");
 			session.persist(t);

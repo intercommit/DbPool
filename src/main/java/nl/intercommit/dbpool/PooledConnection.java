@@ -30,6 +30,7 @@ public class PooledConnection {
 	
 	public final Connection dbConn;
 	protected Thread user;
+	/** Start-time for this connection to be leased or start idleling. */
 	protected long waitStart;
 	protected boolean dirty;
 	protected boolean leased;

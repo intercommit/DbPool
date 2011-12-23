@@ -20,6 +20,7 @@ package nl.intercommit.dbpool;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static nl.intercommit.dbpool.TestUtil.*;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -89,11 +90,11 @@ public class DbTask implements Runnable {
 	/** Called by run-loop. Inserts and selects a number of records in one transaction. */
 	public void task() throws SQLException {
 		
-		db.setNQuery(TestDbPools.insertRecord, Statement.RETURN_GENERATED_KEYS);
+		db.setNQuery(insertRecord, Statement.RETURN_GENERATED_KEYS);
 		if (queryTimeOutSeconds > 0) db.nps.getStatement().setQueryTimeout(queryTimeOutSeconds);
 		int i = 0;
 		while (i < numberOfInserts) {
-			db.nps.setString("name", TestDbPools.str(255));
+			db.nps.setString("name", str(255));
 			assertEquals("Insert 1 record.", 1, db.nps.executeUpdate());
 			db.rs = db.nps.getStatement().getGeneratedKeys();
 			assertTrue("Have a generated value.", db.rs.next());
@@ -107,12 +108,12 @@ public class DbTask implements Runnable {
 			i++;
 		}
 		if (numberOfInserts > 0 && log.isDebugEnabled()) log.debug(taskId + " inserted " + numberOfInserts + " records.");
-		db.setNQuery(TestDbPools.selectRecord);
+		db.setNQuery(selectRecord);
 		if (queryTimeOutSeconds > 0) db.nps.getStatement().setQueryTimeout(queryTimeOutSeconds);
 		i = 0;
 		int hits = 0;
 		while (i < numberOfSearches) {
-			String nameSearch = TestDbPools.str(querySearchKeySize);
+			String nameSearch = str(querySearchKeySize);
 			db.nps.setString("name", "%"+nameSearch+"%");
 			db.rs = db.nps.executeQuery();
 			int rsSize = 0; 

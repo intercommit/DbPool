@@ -32,4 +32,16 @@ public interface DbConnFactory {
 	void close(Connection dbConn);
 	/** Closes a database connection, tries to perform a rollback if rollback is true. */
 	void close(Connection dbConn, boolean rollback);
+	
+	/** 
+	 * The default toString() method should be overridden to return information
+	 * about the database that this DbConnFactory is (or should be) using, e.g. the JDBC-URL.
+	 * DbPool will use this method to provide context information with error messages
+	 * (so the reader of the error messages has an idea which database is causing problems).
+	 * <br>The returned String should be a unique constant for the life-time of this factory
+	 * (this can be required when this class is part of a Hash-map).  
+	 * @return A short unique description of this factory and underlying database (user)
+	 * that provides contextual information in error-messages.
+	 */
+	String toString();
 }
