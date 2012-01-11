@@ -19,3 +19,9 @@ Existing Git Repo?
 cd existing_git_repo
 git remote add origin git@github.com:intercommit/DbPool.git
 git push -u origin master
+
+Update master:
+
+git add .
+git commit -m 'commit message'
+git push -u origin master
