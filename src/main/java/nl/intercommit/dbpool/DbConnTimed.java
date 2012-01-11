@@ -44,11 +44,12 @@ public class DbConnTimed extends DbConn {
 	/** Time connection was leased. */
 	protected long connLeaseStart;
 	
-	public DbConnTimed(DbPool pool) {
+	public DbConnTimed(final DbPool pool) {
 		super(pool);
 	}
 	
 	/** Acquires a connection from the pool, but only when conn is null. */
+	@Override
 	public Connection getConnection() throws SQLException {
 		
 		if (conn == null) {
@@ -64,6 +65,7 @@ public class DbConnTimed extends DbConn {
 		return conn;
 	}
 	
+	@Override
 	public void close() {
 		
 		final long leaseTime = (System.currentTimeMillis() - connLeaseStart);

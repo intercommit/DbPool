@@ -43,5 +43,6 @@ public interface DbConnFactory {
 	 * @return A short unique description of this factory and underlying database (user)
 	 * that provides contextual information in error-messages.
 	 */
+	@Override
 	String toString();
 }

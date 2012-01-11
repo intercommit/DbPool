@@ -24,7 +24,7 @@ public class HibernateConnectionProvider implements ConnectionProvider {
 	protected DbPool dbPool;
 	
 	@Override
-	public void configure(Properties props) throws HibernateException {
+	public void configure(final Properties props) throws HibernateException {
 		
 		dbPool = dbPoolsByUrl.get(props.get(Environment.URL));
 		if(dbPool == null) {

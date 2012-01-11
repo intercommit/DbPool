@@ -69,14 +69,14 @@ public class DbPool {
 	protected volatile boolean closed;
 	
 	public DbConnFactory getFactory() { return connFactory; }
-	public void setFactory(DbConnFactory cf) { connFactory = cf; }
+	public void setFactory(final DbConnFactory cf) { connFactory = cf; }
 	
 	/** 
 	 * Used to start the timeOutWatcher (only when maxLeaseTimeMs is larger as 0)
 	 */
-	public void execute(Runnable r, boolean daemon) { 
+	public void execute(final Runnable r, final boolean daemon) { 
 		
-		Thread t = new Thread(r);
+		final Thread t = new Thread(r);
 		t.setDaemon(daemon);
 		t.start();
 	}
@@ -89,7 +89,7 @@ public class DbPool {
 	 * @throws SQLException When the pool was previously closed 
 	 * or no connection factory was set. Otherwise, when failOnConnectionError is false, this error is not thrown.  
 	 */
-	public void open(boolean failOnConnectionError) throws SQLException {
+	public void open(final boolean failOnConnectionError) throws SQLException {
 		
 		if (closed) throw new SQLException("Cannot re-use a closed database connection pool.");
 		if (connFactory == null) throw new SQLException("A database connection factory is required.");
@@ -222,7 +222,7 @@ public class DbPool {
 	public void release(final Connection dbConn) {
 		
 		if (dbConn == null) return;
-		final PooledConnection pc = connections.get(dbConn);
+		PooledConnection pc = connections.get(dbConn);
 		if (pc == null) {
 			log.error("Cannot release a database connection that is not in the pool: " + dbConn);
 			close(dbConn, false);
@@ -247,7 +247,7 @@ public class DbPool {
 	 * @return True if the connection was marked as dirty,
 	 * false if the connection is not part of this pool.
 	 */
-	public boolean setDirty(Connection dbConn) {
+	public boolean setDirty(final Connection dbConn) {
 		
 		PooledConnection pc = connections.get(dbConn);
 		if (pc == null) return false;

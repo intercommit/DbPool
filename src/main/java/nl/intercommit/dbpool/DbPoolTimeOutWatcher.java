@@ -53,7 +53,7 @@ public class DbPoolTimeOutWatcher implements Runnable {
 	 */
 	public boolean interrupt;
 
-	public DbPoolTimeOutWatcher(DbPool dbPool) {
+	public DbPoolTimeOutWatcher(final DbPool dbPool) {
 		super();
 		this.dbPool = dbPool;
 	}
@@ -85,25 +85,25 @@ public class DbPoolTimeOutWatcher implements Runnable {
 	/** Checks for leased pooled connections the max-lease expire time. */
 	protected void checkLeaseTimeOut() {
 		
-		Iterator<PooledConnection> pcs = dbPool.connections.values().iterator();
+		final Iterator<PooledConnection> pcs = dbPool.connections.values().iterator();
 		while (pcs.hasNext()) {
-			PooledConnection pc = pcs.next();
+			final PooledConnection pc = pcs.next();
 			if (!pc.isLeased()) continue;
 			if (pc.getMaxLeaseTimeMs() < 1L) continue;
 			if (pc.getWaitTime() < pc.getMaxLeaseTimeMs()) continue;
-			Thread t = pc.getUser();
+			final Thread t = pc.getUser();
 			if (t != null && pc.isLeased()) {
 				pc.dirty();
-				StackTraceElement[] tstack = t.getStackTrace();
+				final StackTraceElement[] tstack = t.getStackTrace();
 				if (interrupt) t.interrupt();
 				pc.resetWaitStart();
 				expiredCount++;
-				StringBuilder sb = new StringBuilder("Lease time (");
+				final StringBuilder sb = new StringBuilder("Lease time (");
 				sb.append(pc.getMaxLeaseTimeMs()).append(") expired for pooled database connection used by thread ");
 				sb.append(t.toString());
 				if (interrupt) sb.append(". Thread was interrupted.");
 				sb.append("\nStack trace from thread:\n");
-				for (StackTraceElement st : tstack) {
+				for (final StackTraceElement st : tstack) {
 					sb.append(st.getClassName())
 					.append("(").append(st.getMethodName())
 					.append(":").append(st.getLineNumber()).append(")\n");
@@ -122,7 +122,7 @@ public class DbPoolTimeOutWatcher implements Runnable {
 		while (pc != null && pc.waitStart + dbPool.maxIdleTimeMs < System.currentTimeMillis()) {
 			// Try to remove the idle connection from the pool
 			// First decrease amount of available connections.
-			boolean haveLease = dbPool.connLeaser.tryAcquire(1L, TimeUnit.MILLISECONDS);
+			final boolean haveLease = dbPool.connLeaser.tryAcquire(1L, TimeUnit.MILLISECONDS);
 			if (!haveLease) return; // Sudden busy moment: all connections got leased, so no idle time-outs.
 			if (pc.isLeased()) { // Should not happen, but better safe then sorry
 				dbPool.connLeaser.release();

@@ -36,7 +36,7 @@ public class PooledConnection {
 	protected boolean leased;
 	protected long maxLeaseTimeMs;
 
-	public PooledConnection(Connection dbConn, long leaseTimeOutMs) {
+	public PooledConnection(final Connection dbConn, final long leaseTimeOutMs) {
 		super();
 		this.dbConn = dbConn;
 		setLeased(true, leaseTimeOutMs);

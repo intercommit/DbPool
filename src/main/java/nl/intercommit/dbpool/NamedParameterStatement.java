@@ -1,21 +1,21 @@
 /*  Copyright 2011 InterCommIT b.v.
-*
-*  This file is part of the "DbPool" project hosted on https://github.com/intercommit/DbPool
-*
-*  DbPool is free software: you can redistribute it and/or modify
-*  it under the terms of the GNU Lesser General Public License as published by
-*  the Free Software Foundation, either version 3 of the License, or
-*  any later version.
-*
-*  DbPool is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*  GNU Lesser General Public License for more details.
-*
-*  You should have received a copy of the GNU Lesser General Public License
-*  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
-*
-*/
+ *
+ *  This file is part of the "DbPool" project hosted on https://github.com/intercommit/DbPool
+ *
+ *  DbPool is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  any later version.
+ *
+ *  DbPool is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with DbPool.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 package nl.intercommit.dbpool;
 
 import java.io.IOException;
@@ -33,402 +33,403 @@ import java.util.List;
 import java.util.Map;
 
 /**
-* This class wraps around a {@link PreparedStatement} and allows the programmer to set parameters by name instead
-* of by index.  This eliminates any confusion as to which parameter index represents what.  This also means that
-* rearranging the SQL statement or adding a parameter doesn't involve renumbering your indices.
-* Code such as this:
-* <pre>
-* Connection con=getConnection();
-* String query="select * from my_table where name=? or address=?";
-* PreparedStatement p=con.prepareStatement(query);
-* p.setString(1, "bob");
-* p.setString(2, "123 terrace ct");
-* ResultSet rs=p.executeQuery();
-* </pre>
-* can be replaced with:
-* <pre>
-* Connection con=getConnection();
-* String query="select * from my_table where name=@name or address=@address";
-* NamedParameterStatement p=new NamedParameterStatement(con, query);
-* p.setString("name", "bob");
-* p.setString("address", "123 terrace ct");
-* ResultSet rs=p.executeQuery();
-* </pre>
-* @author adam_crume
-* <br>Copied from http://www.javaworld.com/javaworld/jw-04-2007/jw-04-jdbc.html
-* <br>Modified by (2010/03/02)
-* @author rayco_arana
-* <br>Copied from http://monetproject.git.sourceforge.net/git/gitweb.cgi?p=monetproject/monetproject;a=blob_plain;f=applications/loginservice/server/src/org/monet/loginservice/utils/NamedParameterStatement.java;hb=5325b37aa61543c6262e01b09fa5cb95b188383a
-*/
+ * This class wraps around a {@link PreparedStatement} and allows the programmer to set parameters by name instead
+ * of by index.  This eliminates any confusion as to which parameter index represents what.  This also means that
+ * rearranging the SQL statement or adding a parameter doesn't involve renumbering your indices.
+ * Code such as this:
+ * <pre>
+ * Connection con=getConnection();
+ * String query="select * from my_table where name=? or address=?";
+ * PreparedStatement p=con.prepareStatement(query);
+ * p.setString(1, "bob");
+ * p.setString(2, "123 terrace ct");
+ * ResultSet rs=p.executeQuery();
+ * </pre>
+ * can be replaced with:
+ * <pre>
+ * Connection con=getConnection();
+ * String query="select * from my_table where name=@name or address=@address";
+ * NamedParameterStatement p=new NamedParameterStatement(con, query);
+ * p.setString("name", "bob");
+ * p.setString("address", "123 terrace ct");
+ * ResultSet rs=p.executeQuery();
+ * </pre>
+ * @author adam_crume
+ * <br>Copied from http://www.javaworld.com/javaworld/jw-04-2007/jw-04-jdbc.html
+ * <br>Modified by (2010/03/02)
+ * @author rayco_arana
+ * <br>Copied from http://monetproject.git.sourceforge.net/git/gitweb.cgi?p=monetproject/monetproject;a=blob_plain;f=applications/loginservice/server/src/org/monet/loginservice/utils/NamedParameterStatement.java;hb=5325b37aa61543c6262e01b09fa5cb95b188383a
+ */
 public class NamedParameterStatement {
-  private static final HashMap<String, Map<String, List<Integer>>> indexCache = new HashMap<String, Map<String, List<Integer>>>();
-  private static final HashMap<String, String> parsedQueryCache = new HashMap<String, String>();
-  private static final HashMap<String, String[]> parsedQueryArrayCache = new HashMap<String, String[]>();
-  
-  /** The statement this object is wrapping. */
-  private final PreparedStatement statement;
-  private final String query;
-  private final String parsedQuery;
-  
-  /** Maps parameter names to arrays of ints which are the parameter indices. */
-  private final Map<String, List<Integer>> indexMap;
 
-    /**
-     * Creates a NamedParameterStatement.  Wraps a call to
-     * c.{@link Connection#prepareStatement(java.lang.String) prepareStatement}.
-     * @param connection the database connection
-     * @param query      the parameterized query
-     * @throws SQLException if the statement could not be created
-     */
-    public NamedParameterStatement(Connection connection, String query) throws SQLException {
-      this.query = query;
-      if(indexCache.containsKey(query)) {
-        indexMap = indexCache.get(query);
-        parsedQuery = parsedQueryCache.get(query);
-      } else {
-        indexMap = new HashMap<String, List<Integer>>();
-        parsedQuery = parse(query, indexMap);
-        indexCache.put(query, indexMap);
-        parsedQueryCache.put(query, parsedQuery);
-      }
-      statement=connection.prepareStatement(parsedQuery);
-    }
+	private static final HashMap<String, Map<String, List<Integer>>> indexCache = new HashMap<String, Map<String, List<Integer>>>();
+	private static final HashMap<String, String> parsedQueryCache = new HashMap<String, String>();
+	private static final HashMap<String, String[]> parsedQueryArrayCache = new HashMap<String, String[]>();
 
-    /**
-     * Creates a NamedParameterStatement.  Wraps a call to
-     * c.{@link Connection#prepareStatement(java.lang.String) prepareStatement}.
-     * @param connection the database connection
-     * @param query      the parameterized query
-     * @param autoGeneratedKeys
-     * @throws SQLException if the statement could not be created
-     */
-    public NamedParameterStatement(Connection connection, String query, int autoGeneratedKeys) throws SQLException {
-      String [] queries = null;
-      this.query = query;
-      if(indexCache.containsKey(query)) {
-        indexMap = indexCache.get(query);
-        queries = parsedQueryArrayCache.get(query);
-        parsedQuery = queries[0];
-      } else {
-        indexMap = new HashMap<String, List<Integer>>();
-        queries = query.split(";");
-        parsedQuery = parse(queries[0], indexMap);
-        queries[0] = parsedQuery;
-        indexCache.put(query, indexMap);
-        parsedQueryArrayCache.put(query, queries);
-      }
-      if(queries.length == 1)
-        statement=connection.prepareStatement(parsedQuery, autoGeneratedKeys);
-      else
-        statement=connection.prepareStatement(parsedQuery, new String[]{queries[1]});
-    }
+	/** The statement this object is wrapping. */
+	private final PreparedStatement statement;
+	private final String query;
+	private final String parsedQuery;
 
-    /**
-     * Parses a query with named parameters.  The parameter-index mappings are put into the map, and the
-     * parsed query is returned.  DO NOT CALL FROM CLIENT CODE.  This method is non-private so JUnit code can
-     * test it.
-     * @param query    query to parse
-     * @param paramMap map to hold parameter-index mappings
-     * @return the parsed query
-     */
-    static final String parse(String query, Map<String, List<Integer>> paramMap) {
-        // I was originally using regular expressions, but they didn't work well for ignoring
-        // parameter-like strings inside quotes.
-        int length=query.length();
-        StringBuffer parsedQuery=new StringBuffer(length);
-        boolean inSingleQuote=false;
-        boolean inDoubleQuote=false;
-        int index=1;
+	/** Maps parameter names to arrays of ints which are the parameter indices. */
+	private final Map<String, List<Integer>> indexMap;
 
-        for(int i=0;i<length;i++) {
-            char c=query.charAt(i);
-            if(inSingleQuote) {
-                if(c=='\'') {
-                    inSingleQuote=false;
-                }
-            } else if(inDoubleQuote) {
-                if(c=='"') {
-                    inDoubleQuote=false;
-                }
-            } else {
-                if(c=='\'') {
-                    inSingleQuote=true;
-                } else if(c=='"') {
-                    inDoubleQuote=true;
-                } else if(c=='@' && i+1<length &&
-                        Character.isJavaIdentifierStart(query.charAt(i+1))) {
-                    int j=i+2;
-                    while(j<length && Character.isJavaIdentifierPart(query.charAt(j))) {
-                        j++;
-                    }
-                    String name=query.substring(i+1,j);
-                    c='?'; // replace the parameter with a question mark
-                    i+=name.length(); // skip past the end if the parameter
+	/**
+	 * Creates a NamedParameterStatement.  Wraps a call to
+	 * c.{@link Connection#prepareStatement(java.lang.String) prepareStatement}.
+	 * @param connection the database connection
+	 * @param query      the parameterized query
+	 * @throws SQLException if the statement could not be created
+	 */
+	public NamedParameterStatement(final Connection connection, final String query) throws SQLException {
+		this.query = query;
+		if(indexCache.containsKey(query)) {
+			indexMap = indexCache.get(query);
+			parsedQuery = parsedQueryCache.get(query);
+		} else {
+			indexMap = new HashMap<String, List<Integer>>();
+			parsedQuery = parse(query, indexMap);
+			indexCache.put(query, indexMap);
+			parsedQueryCache.put(query, parsedQuery);
+		}
+		statement=connection.prepareStatement(parsedQuery);
+	}
 
-                    List<Integer> indexList=(List<Integer>)paramMap.get(name);
-                    if(indexList==null) {
-                        indexList=new LinkedList<Integer>();
-                        paramMap.put(name, indexList);
-                    }
-                    indexList.add(new Integer(index));
+	/**
+	 * Creates a NamedParameterStatement.  Wraps a call to
+	 * c.{@link Connection#prepareStatement(java.lang.String) prepareStatement}.
+	 * @param connection the database connection
+	 * @param query      the parameterized query
+	 * @param autoGeneratedKeys
+	 * @throws SQLException if the statement could not be created
+	 */
+	public NamedParameterStatement(final Connection connection, final String query, final int autoGeneratedKeys) throws SQLException {
+		String [] queries = null;
+		this.query = query;
+		if(indexCache.containsKey(query)) {
+			indexMap = indexCache.get(query);
+			queries = parsedQueryArrayCache.get(query);
+			parsedQuery = queries[0];
+		} else {
+			indexMap = new HashMap<String, List<Integer>>();
+			queries = query.split(";");
+			parsedQuery = parse(queries[0], indexMap);
+			queries[0] = parsedQuery;
+			indexCache.put(query, indexMap);
+			parsedQueryArrayCache.put(query, queries);
+		}
+		if(queries.length == 1)
+			statement=connection.prepareStatement(parsedQuery, autoGeneratedKeys);
+		else
+			statement=connection.prepareStatement(parsedQuery, new String[]{queries[1]});
+	}
 
-                    index++;
-                }
-            }
-            parsedQuery.append(c);
-        }
+	/**
+	 * Parses a query with named parameters.  The parameter-index mappings are put into the map, and the
+	 * parsed query is returned.  DO NOT CALL FROM CLIENT CODE.  This method is non-private so JUnit code can
+	 * test it.
+	 * @param query    query to parse
+	 * @param paramMap map to hold parameter-index mappings
+	 * @return the parsed query
+	 */
+	static final String parse(final String query, final Map<String, List<Integer>> paramMap) {
+		// I was originally using regular expressions, but they didn't work well for ignoring
+		// parameter-like strings inside quotes.
+		final int length=query.length();
+		final StringBuffer parsedQuery=new StringBuffer(length);
+		boolean inSingleQuote=false;
+		boolean inDoubleQuote=false;
+		int index=1;
 
-        return parsedQuery.toString();
-    }
+		for(int i=0;i<length;i++) {
+			char c=query.charAt(i);
+			if(inSingleQuote) {
+				if(c=='\'') {
+					inSingleQuote=false;
+				}
+			} else if(inDoubleQuote) {
+				if(c=='"') {
+					inDoubleQuote=false;
+				}
+			} else {
+				if(c=='\'') {
+					inSingleQuote=true;
+				} else if(c=='"') {
+					inDoubleQuote=true;
+				} else if(c=='@' && i+1<length &&
+						Character.isJavaIdentifierStart(query.charAt(i+1))) {
+					int j=i+2;
+					while(j<length && Character.isJavaIdentifierPart(query.charAt(j))) {
+						j++;
+					}
+					final String name=query.substring(i+1,j);
+					c='?'; // replace the parameter with a question mark
+					i+=name.length(); // skip past the end if the parameter
 
+					List<Integer> indexList=paramMap.get(name);
+					if(indexList==null) {
+						indexList=new LinkedList<Integer>();
+						paramMap.put(name, indexList);
+					}
+					indexList.add(new Integer(index));
 
-    /**
-     * Returns the indexes for a parameter.
-     * @param name parameter name
-     * @return parameter indexes
-     * @throws IllegalArgumentException if the parameter does not exist
-     */
-    
-    private int[] getIndexes(String name) {
-      List<Integer> indexesList = indexMap.get(name);
-      if(indexesList == null) throw new IllegalArgumentException("Parameter not found: "+name);
-      int[] indexes = new int[indexesList.size()];
-      for(int i=0;i<indexesList.size();i++)
-        indexes[i] = indexesList.get(i);
-      return indexes;
-    }
+					index++;
+				}
+			}
+			parsedQuery.append(c);
+		}
+
+		return parsedQuery.toString();
+	}
 
 
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setObject(int, java.lang.Object)
-     */
-    public void setObject(String name, Object value) throws SQLException {
-        int[] indexes=getIndexes(name);
-        for(int i=0; i < indexes.length; i++) {
-            statement.setObject(indexes[i], value);
-        }
-    }
+	/**
+	 * Returns the indexes for a parameter.
+	 * @param name parameter name
+	 * @return parameter indexes
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 */
+
+	private int[] getIndexes(final String name) {
+		final List<Integer> indexesList = indexMap.get(name);
+		if(indexesList == null) throw new IllegalArgumentException("Parameter not found: "+name);
+		final int[] indexes = new int[indexesList.size()];
+		for(int i=0;i<indexesList.size();i++)
+			indexes[i] = indexesList.get(i);
+		return indexes;
+	}
 
 
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setString(int, java.lang.String)
-     */
-    public void setString(String name, String value) throws SQLException {
-        int[] indexes=getIndexes(name);
-        for(int i=0; i < indexes.length; i++) {
-            statement.setString(indexes[i], value);
-        }
-    }
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setObject(int, java.lang.Object)
+	 */
+	public void setObject(final String name, final Object value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setObject(indexes[i], value);
+		}
+	}
 
 
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setInt(int, int)
-     */
-    public void setInt(String name, int value) throws SQLException {
-        int[] indexes=getIndexes(name);
-        for(int i=0; i < indexes.length; i++) {
-            statement.setInt(indexes[i], value);
-        }
-    }
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setString(int, java.lang.String)
+	 */
+	public void setString(final String name, final String value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setString(indexes[i], value);
+		}
+	}
 
 
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setInt(int, int)
-     */
-    public void setLong(String name, long value) throws SQLException {
-        int[] indexes=getIndexes(name);
-        for(int i=0; i < indexes.length; i++) {
-            statement.setLong(indexes[i], value);
-        }
-    }
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setInt(int, int)
+	 */
+	public void setInt(final String name, final int value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setInt(indexes[i], value);
+		}
+	}
 
 
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setTimestamp(int, java.sql.Timestamp)
-     */
-    public void setTimestamp(String name, Timestamp value) throws SQLException {
-        int[] indexes=getIndexes(name);
-        for(int i=0; i < indexes.length; i++) {
-            statement.setTimestamp(indexes[i], value);
-        }
-    }
-
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IOException 
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setBinaryStream(int, java.io.InputStream)
-     */
-    public void setBinaryStream(String name, InputStream value) throws SQLException, IOException {
-      int[] indexes=getIndexes(name);
-      for(int i=0; i < indexes.length; i++) {
-        int available = 0;
-        if(value != null) available = (int)value.available();
-        statement.setBinaryStream(indexes[i], value, available);
-      }
-    }
-    
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setNull(int, int)
-     */
-    public void setNull(String name, int sqlType) throws SQLException {
-      int[] indexes=getIndexes(name);
-      for(int i=0; i < indexes.length; i++) {
-          statement.setNull(indexes[i], sqlType);
-      }
-    }
-
-    /**
-     * Sets a parameter.
-     * @param name  parameter name
-     * @param value parameter value
-     * @throws SQLException if an error occurred
-     * @throws IllegalArgumentException if the parameter does not exist
-     * @see PreparedStatement#setDate(int, Date)
-     */
-    public void setDate(String name, Date value) throws SQLException {
-      int[] indexes=getIndexes(name);
-      for(int i=0; i < indexes.length; i++) {
-          statement.setDate(indexes[i], value);
-      }      
-    }
-    
-    public void setFloat(String name, float value) throws SQLException {
-      int[] indexes=getIndexes(name);
-      for(int i=0; i < indexes.length; i++) {
-          statement.setFloat(indexes[i], value);
-      }
-    }
-    
-    public void setDouble(String name, double value) throws SQLException {
-      int[] indexes=getIndexes(name);
-      for(int i=0; i < indexes.length; i++) {
-          statement.setDouble(indexes[i], value);
-      }
-    }
-    
-    /**
-     * Returns the underlying statement.
-     * @return the statement
-     */
-    public PreparedStatement getStatement() {
-        return statement;
-    }
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setInt(int, int)
+	 */
+	public void setLong(final String name, final long value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setLong(indexes[i], value);
+		}
+	}
 
 
-    /**
-     * Executes the statement.
-     * @return true if the first result is a {@link ResultSet}
-     * @throws SQLException if an error occurred
-     * @see PreparedStatement#execute()
-     */
-    public boolean execute() throws SQLException {
-        return statement.execute();
-    }
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setTimestamp(int, java.sql.Timestamp)
+	 */
+	public void setTimestamp(final String name, final Timestamp value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setTimestamp(indexes[i], value);
+		}
+	}
+
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IOException 
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setBinaryStream(int, java.io.InputStream)
+	 */
+	public void setBinaryStream(final String name, final InputStream value) throws SQLException, IOException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			int available = 0;
+			if(value != null) available = value.available();
+			statement.setBinaryStream(indexes[i], value, available);
+		}
+	}
+
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setNull(int, int)
+	 */
+	public void setNull(final String name, final int sqlType) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setNull(indexes[i], sqlType);
+		}
+	}
+
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setDate(int, Date)
+	 */
+	public void setDate(final String name, final Date value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setDate(indexes[i], value);
+		}      
+	}
+
+	public void setFloat(final String name, final float value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setFloat(indexes[i], value);
+		}
+	}
+
+	public void setDouble(final String name, final double value) throws SQLException {
+		final int[] indexes=getIndexes(name);
+		for(int i=0; i < indexes.length; i++) {
+			statement.setDouble(indexes[i], value);
+		}
+	}
+
+	/**
+	 * Returns the underlying statement.
+	 * @return the statement
+	 */
+	public PreparedStatement getStatement() {
+		return statement;
+	}
 
 
-    /**
-     * Executes the statement, which must be a query.
-     * @return the query results
-     * @throws SQLException if an error occurred
-     * @see PreparedStatement#executeQuery()
-     */
-    public ResultSet executeQuery() throws SQLException {
-        return statement.executeQuery();
-    }
+	/**
+	 * Executes the statement.
+	 * @return true if the first result is a {@link ResultSet}
+	 * @throws SQLException if an error occurred
+	 * @see PreparedStatement#execute()
+	 */
+	public boolean execute() throws SQLException {
+		return statement.execute();
+	}
 
 
-    /**
-     * Executes the statement, which must be an SQL INSERT, UPDATE or DELETE statement;
-     * or an SQL statement that returns nothing, such as a DDL statement.
-     * @return number of rows affected
-     * @throws SQLException if an error occurred
-     * @see PreparedStatement#executeUpdate()
-     */
-    public int executeUpdate() throws SQLException {
-        return statement.executeUpdate();
-    }
-    
-    /**
-     * Executes the statement, which must be an SQL INSERT, UPDATE or DELETE statement;
-     * or an SQL statement that returns nothing, such as a DDL statement, and return a
-     * ResultSet with the generated keys. Useful for drivers that not support standard
-     * getGeneratedKeys()
-     * @return number of rows affected
-     * @throws SQLException if an error occurred
-     * @see PreparedStatement#executeUpdate()
-     */
-    public ResultSet executeUpdateAndGetGeneratedKeys() throws SQLException {     
-      statement.executeUpdate();
-      ResultSet results = statement.getGeneratedKeys();
-      return results;
-    }
-
-    /**
-     * Closes the statement.
-     * @throws SQLException if an error occurred
-     * @see Statement#close()
-     */
-    public void close() throws SQLException {
-        statement.close();
-    }
+	/**
+	 * Executes the statement, which must be a query.
+	 * @return the query results
+	 * @throws SQLException if an error occurred
+	 * @see PreparedStatement#executeQuery()
+	 */
+	public ResultSet executeQuery() throws SQLException {
+		return statement.executeQuery();
+	}
 
 
-    /**
-     * Adds the current set of parameters as a batch entry.
-     * @throws SQLException if something went wrong
-     */
-    public void addBatch() throws SQLException {
-        statement.addBatch();
-    }
+	/**
+	 * Executes the statement, which must be an SQL INSERT, UPDATE or DELETE statement;
+	 * or an SQL statement that returns nothing, such as a DDL statement.
+	 * @return number of rows affected
+	 * @throws SQLException if an error occurred
+	 * @see PreparedStatement#executeUpdate()
+	 */
+	public int executeUpdate() throws SQLException {
+		return statement.executeUpdate();
+	}
+
+	/**
+	 * Executes the statement, which must be an SQL INSERT, UPDATE or DELETE statement;
+	 * or an SQL statement that returns nothing, such as a DDL statement, and return a
+	 * ResultSet with the generated keys. Useful for drivers that not support standard
+	 * getGeneratedKeys()
+	 * @return number of rows affected
+	 * @throws SQLException if an error occurred
+	 * @see PreparedStatement#executeUpdate()
+	 */
+	public ResultSet executeUpdateAndGetGeneratedKeys() throws SQLException {     
+		statement.executeUpdate();
+		final ResultSet results = statement.getGeneratedKeys();
+		return results;
+	}
+
+	/**
+	 * Closes the statement.
+	 * @throws SQLException if an error occurred
+	 * @see Statement#close()
+	 */
+	public void close() throws SQLException {
+		statement.close();
+	}
 
 
-    /**
-     * Executes all of the batched statements.
-     * 
-     * See {@link Statement#executeBatch()} for details.
-     * @return update counts for each statement
-     * @throws SQLException if something went wrong
-     */
-    public int[] executeBatch() throws SQLException {
-        return statement.executeBatch();
-    }
+	/**
+	 * Adds the current set of parameters as a batch entry.
+	 * @throws SQLException if something went wrong
+	 */
+	public void addBatch() throws SQLException {
+		statement.addBatch();
+	}
 
-    public String getQuery() {
-      return query;
-    }
+
+	/**
+	 * Executes all of the batched statements.
+	 * 
+	 * See {@link Statement#executeBatch()} for details.
+	 * @return update counts for each statement
+	 * @throws SQLException if something went wrong
+	 */
+	public int[] executeBatch() throws SQLException {
+		return statement.executeBatch();
+	}
+
+	public String getQuery() {
+		return query;
+	}
 
 }
