@@ -189,7 +189,6 @@ public class NamedParameterStatement {
 	 * @return parameter indexes
 	 * @throws IllegalArgumentException if the parameter does not exist
 	 */
-
 	private int[] getIndexes(final String name) {
 		final List<Integer> indexesList = indexMap.get(name);
 		if(indexesList == null) throw new IllegalArgumentException("Parameter not found: "+name);
@@ -198,7 +197,6 @@ public class NamedParameterStatement {
 			indexes[i] = indexesList.get(i);
 		return indexes;
 	}
-
 
 	/**
 	 * Sets a parameter.
@@ -215,7 +213,6 @@ public class NamedParameterStatement {
 		}
 	}
 
-
 	/**
 	 * Sets a parameter.
 	 * @param name  parameter name
@@ -230,7 +227,6 @@ public class NamedParameterStatement {
 			statement.setString(indexes[i], value);
 		}
 	}
-
 
 	/**
 	 * Sets a parameter.
@@ -247,14 +243,13 @@ public class NamedParameterStatement {
 		}
 	}
 
-
 	/**
 	 * Sets a parameter.
 	 * @param name  parameter name
 	 * @param value parameter value
 	 * @throws SQLException if an error occurred
 	 * @throws IllegalArgumentException if the parameter does not exist
-	 * @see PreparedStatement#setInt(int, int)
+	 * @see PreparedStatement#setLong(int, long)
 	 */
 	public void setLong(final String name, final long value) throws SQLException {
 		final int[] indexes=getIndexes(name);
@@ -262,7 +257,6 @@ public class NamedParameterStatement {
 			statement.setLong(indexes[i], value);
 		}
 	}
-
 
 	/**
 	 * Sets a parameter.
@@ -299,8 +293,8 @@ public class NamedParameterStatement {
 
 	/**
 	 * Sets a parameter.
-	 * @param name  parameter name
-	 * @param value parameter value
+	 * @param name parameter name
+	 * @param sqlType the SQL type code defined in <code>java.sql.Types</code>
 	 * @throws SQLException if an error occurred
 	 * @throws IllegalArgumentException if the parameter does not exist
 	 * @see PreparedStatement#setNull(int, int)
@@ -327,6 +321,14 @@ public class NamedParameterStatement {
 		}      
 	}
 
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setFloat(int, float)
+	 */
 	public void setFloat(final String name, final float value) throws SQLException {
 		final int[] indexes=getIndexes(name);
 		for(int i=0; i < indexes.length; i++) {
@@ -334,6 +336,14 @@ public class NamedParameterStatement {
 		}
 	}
 
+	/**
+	 * Sets a parameter.
+	 * @param name  parameter name
+	 * @param value parameter value
+	 * @throws SQLException if an error occurred
+	 * @throws IllegalArgumentException if the parameter does not exist
+	 * @see PreparedStatement#setDouble(int, double)
+	 */
 	public void setDouble(final String name, final double value) throws SQLException {
 		final int[] indexes=getIndexes(name);
 		for(int i=0; i < indexes.length; i++) {
@@ -349,7 +359,6 @@ public class NamedParameterStatement {
 		return statement;
 	}
 
-
 	/**
 	 * Executes the statement.
 	 * @return true if the first result is a {@link ResultSet}
@@ -360,7 +369,6 @@ public class NamedParameterStatement {
 		return statement.execute();
 	}
 
-
 	/**
 	 * Executes the statement, which must be a query.
 	 * @return the query results
@@ -370,7 +378,6 @@ public class NamedParameterStatement {
 	public ResultSet executeQuery() throws SQLException {
 		return statement.executeQuery();
 	}
-
 
 	/**
 	 * Executes the statement, which must be an SQL INSERT, UPDATE or DELETE statement;
@@ -407,27 +414,26 @@ public class NamedParameterStatement {
 		statement.close();
 	}
 
-
 	/**
 	 * Adds the current set of parameters as a batch entry.
 	 * @throws SQLException if something went wrong
+	 * @see PreparedStatement#addBatch()
 	 */
 	public void addBatch() throws SQLException {
 		statement.addBatch();
 	}
 
-
 	/**
 	 * Executes all of the batched statements.
-	 * 
-	 * See {@link Statement#executeBatch()} for details.
 	 * @return update counts for each statement
 	 * @throws SQLException if something went wrong
+	 * @see Statement#executeBatch()
 	 */
 	public int[] executeBatch() throws SQLException {
 		return statement.executeBatch();
 	}
 
+	/** The original query given when this object was created. */
 	public String getQuery() {
 		return query;
 	}

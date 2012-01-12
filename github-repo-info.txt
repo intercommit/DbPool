@@ -23,5 +23,5 @@ git push -u origin master
 Update master:
 
 git add .
-git commit -m 'commit message'
+git commit -a -m 'commit message'
 git push -u origin master
