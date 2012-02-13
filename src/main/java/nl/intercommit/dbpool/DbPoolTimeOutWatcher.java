@@ -26,14 +26,14 @@ import org.apache.log4j.Logger;
 
 /** 
  * A thread running in the background that frequently (see {@link DbPool#timeOutWatchIntervalMs})
- * checks if connections are returned to the pool within the maximum lease time (see {@link DbPool#maxLeaseTimMs})
+ * checks if connections are returned to the pool within the maximum lease time (see {@link DbPool#maxLeaseTimeMs})
  * or have reached maximum idle time (see {@link DbPool#maxIdleTimeMs}).
  * <br>There can be different reasons for a lease time-out:
  * <br> A - the code that acquired a connection, did not release it (programming error)
  * <br> B - the database is very busy or the executed query takes a long time to complete
  * <br> C - the thread that is using a connection is hanging (e.g. waiting on I/O)
- * <br> When in testing/acceptance, set the {@link DbPool#maxLeaseTimMs} at a low value so you can catch cases A and B.
- * <br> When in production, set the {@link DbPool#maxLeaseTimMs} at a very high value 
+ * <br> When in testing/acceptance, set the {@link DbPool#maxLeaseTimeMs} at a low value so you can catch cases A and B.
+ * <br> When in production, set the {@link DbPool#maxLeaseTimeMs} at a very high value 
  * (so you do not get endless amount of warnings when the database server is very busy)
  * and consider setting {@link #interrupt} to true. {@link #interrupt} may help unlock hanging threads.   
  * <br>If a lease-time has expired, a warning is logged with a stack-trace of the thread that acquired the connection.
@@ -57,7 +57,7 @@ public class DbPoolTimeOutWatcher implements Runnable {
 	protected DbPool dbPool;
 	/** 
 	 * If true, threads that hold on to a database connection for longer 
-	 * then {@link DbPool#maxLeaseTimMs}, will get interrupted. 
+	 * then {@link DbPool#maxLeaseTimeMs}, will get interrupted. 
 	 * Use this with much care.  
 	 */
 	public boolean interrupt;
