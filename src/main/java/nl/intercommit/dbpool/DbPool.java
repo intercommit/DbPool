@@ -33,7 +33,35 @@ import org.apache.log4j.Logger;
 
 /**
  * Manages database connections in a pool.
- * Before usage, a db connection factory must be set and open must be called.
+ * <br> Before using ({@link #acquire()} and {@link #release(Connection)}), 
+ * a database connection factory must be set ({@link #setFactory(DbConnFactory)})
+ * and {@link #open(boolean)} must be called.
+ * <br> This class contains various public fields that can be used to tune the behavior of the pool.
+ * By default, the pool does the following:
+ * <br> - close and remove connections not used for 1 minute (see {@link #maxIdleTimeMs})
+ * <br> - validate connections before leasing them out (see {@link DbConnFactory#validate(Connection)}).
+ * If a connection is not valid, it is removed silently and another connection from the pool is fetched
+ * (which is also validated etc.). 
+ * <br> - warn if connections are not returned to the pool within 2 minutes 
+ * (see {@link #maxLeaseTimeMs} and {@link DbPoolTimeOutWatcher})
+ * <br> - evict connections from the pool when they do not return within 6 minutes
+ * (see {@link #evictThreshold} and {@link DbPoolTimeOutWatcher} 
+ * <br><br>
+ * Connections can be marked as dirty (see {@link #setDirty(Connection)}) 
+ * to prevent connections from being re-used by this pool.
+ * DbPool checks the dirty-property on check-out (acquire) and check-in (release).
+ * DbPool marks connections as dirty when {@link #maxLeaseTimeMs} has expired. 
+ * DbPool also uses this property internally to {@link #flush()} the connection pool.
+ * <br><br>
+ * Connections are created synchronous (one at a time).
+ * The database server will appreciate this but bursts of connection-requests will experience delays.
+ * If these delays are unwelcome, set the {@link #minSize} at a higher value.
+ * <br><br>
+ * Any request for a connection will always result in trying to get a connection from the pool for 1 millisecond.
+ * This is to prevent creation of connections that are only used once during bursts of connection-requests.
+ * The downside is that creation of connections between {@link #minSize} and {@link #maxSize} 
+ * will always experience a delay of 1 millisecond.   
+ * 
  * @author frederikw
  *
  */
@@ -45,8 +73,20 @@ public class DbPool {
 	public int minSize = 1;
 	/** Maximum amount of connections in the pool. Default 10. */
 	public int maxSize = 10;
-	/** Maximum time a connection can be leased. Default 0 (forever). */
-	public long maxLeaseTimeMs;
+	/** 
+	 * Maximum time a connection can be leased. Default 2 minutes. Value 0 means no lease time out.
+	 * <br>An expired connection is marked as dirty but still counts as an open connection.
+	 * Only after a connection is evicted (see {@link #evictThreshold}), 
+	 * there will be room in the pool for a new connection (when the pool has reached {@link #maxSize}).
+	 */
+	public long maxLeaseTimeMs = 120000L;
+	/** 
+	 * The amount of times that a connection can expire ({@link #maxLeaseTimeMs}) 
+	 * after which a connection is considered lost and removed (evicted) from the pool (but not closed).
+	 * <br>Default 3, value 0 means never evict a connection.
+	 * <br>Set to 1 to evict a connection from the pool when {@link #maxLeaseTimeMs} has expired.
+	 */
+	public int evictThreshold = 3;
 	/** Maximum time a connection can be idle. Default 1 minute. Value 0 means no idle time out. */
 	public long maxIdleTimeMs = 60000L;
 	/** The frequency at which the time-out watcher will check for expired leases and idle connections. */
@@ -64,15 +104,20 @@ public class DbPool {
 	protected Semaphore connLeaser = new Semaphore(0, true);
 	/** Amount of connections in the pool, use instead of connections.size() which is slow. */
 	protected final AtomicInteger connectionCount = new AtomicInteger(); 
+	/** The connection factory used to create new connections. */
 	protected DbConnFactory connFactory;
+	/** The time-out watcher keeping a watch on idle connections and leased connections that do not return to the pool. */
 	protected DbPoolTimeOutWatcher timeOutWatcher;
+	/** Indicates if this pool was closed (in which it cannot be opened again). */
 	protected volatile boolean closed;
 	
+	/** @return The factory used to create, close and validate connections. */
 	public DbConnFactory getFactory() { return connFactory; }
+	/** @param cf The factory used to create, close and validate connections. */
 	public void setFactory(final DbConnFactory cf) { connFactory = cf; }
 	
 	/** 
-	 * Used to start the timeOutWatcher (only when maxLeaseTimeMs is larger as 0)
+	 * Used to start the {@link #timeOutWatcher} (only when {@link #maxLeaseTimeMs}/{@link #maxIdleTimeMs} > 0)
 	 */
 	public void execute(final Runnable r, final boolean daemon) { 
 		
@@ -83,7 +128,7 @@ public class DbPool {
 
 	/**
 	 * Opens the database pool, initializes the minimum amount of connections and 
-	 * starts the connection lease watcher if maxLeaseTimeMs > 0. 
+	 * starts the connection time-out watcher if {@link #maxLeaseTimeMs}/{@link #maxIdleTimeMs} > 0. 
 	 * @param failOnConnectionError If true, a SQLException is thrown when the minimum amount 
 	 * of connections to the database could not be created (else an error is logged but the pool is opened).
 	 * @throws SQLException When the pool was previously closed 
@@ -115,6 +160,7 @@ public class DbPool {
 		}
 	}
 	
+	/** The time-out watcher, if any (only available after pool is opened and maxLeaseTimeMs/maxIdleTimeMs > 0). */
 	public DbPoolTimeOutWatcher getWatcher() { return timeOutWatcher; }
 	/** Amount of connections available for usage (i.e. ready to be acquired). */
 	public int getCountIdleConnections() { return connLeaser.availablePermits(); }
@@ -127,7 +173,7 @@ public class DbPool {
 	public Connection acquire() throws SQLException { 
 		return acquire(maxAcquireTimeMs, maxLeaseTimeMs); 
 	}
-	/** Gets a connection from the pool within acquireTimeOutMs. Sets maxLeaseTimeMs for the pooled connection. */
+	/** Gets a connection from the pool within {@link #maxAcquireTimeMs}. Sets {@link #maxLeaseTimeMs} for the pooled connection. */
 	public Connection acquire(final long acquireTimeOutMs) throws SQLException{ 
 		return acquire(acquireTimeOutMs, maxLeaseTimeMs); 
 	}
@@ -218,13 +264,23 @@ public class DbPool {
 		if (log.isDebugEnabled()) log.debug("Closed database connection " + conn + " for " + connFactory + ", remaining connections: " + connectionCount.get());
 	}
 	
-	/** Releases the connection back into the pool so that another thread may use it. */
+	/** 
+	 * Releases the connection back into the pool so that another thread may use it.
+	 * <br> - If the connection was not leased, only a warning is logged:
+	 * <br>"Database connection is already released".
+	 * <br> - If the connection is marked as dirty, the connection 
+	 * is removed from the pool and closed (no warning is logged).
+	 * <br> - If a connection was evicted (see {@link #evictThreshold}) 
+	 * or is not part of this pool, a warning is logged: 
+	 * <br>"Cannot release a database connection that is not in the pool".
+	 * In this case, the connection will only be closed. 
+	 */
 	public void release(final Connection dbConn) {
 		
 		if (dbConn == null) return;
 		PooledConnection pc = connections.get(dbConn);
 		if (pc == null) {
-			log.error("Cannot release a database connection that is not in the pool: " + dbConn);
+			log.warn("Cannot release a database connection that is not in the pool: " + dbConn);
 			close(dbConn, false);
 			return;
 		}
@@ -265,7 +321,7 @@ public class DbPool {
 	
 	/**
 	 * Marks this pool as closed, no more connections will be provided.
-	 * Call close() to close all open connections.
+	 * Call {@link #close()} to close all open connections.
 	 */
 	public void closed() { closed = true; }
 	

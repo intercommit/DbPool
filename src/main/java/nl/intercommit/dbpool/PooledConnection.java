@@ -22,20 +22,27 @@ import java.sql.Connection;
 
 import org.apache.log4j.Logger;
 
-/** A helper class for DbPool which keeps track of several pool-properties for a database connection. 
- * Most of these properties are used by the DbPoolLeaseWatcher. */
+/** A helper class for {@link DbPool} which keeps track of several pool-properties for a database connection. 
+ * Most of these properties are used by the {@link DbPoolTimeOutWatcher}. */
 public class PooledConnection {
 
 	protected Logger log = Logger.getLogger(getClass());
 	
+	/** The connection to the database which is pooled. */
 	public final Connection dbConn;
 	protected Thread user;
-	/** Start-time for this connection to be leased or start idleling. */
+	/** Start-time for this connection to be leased or being idle. */
 	protected long waitStart;
 	protected boolean dirty;
 	protected boolean leased;
 	protected long maxLeaseTimeMs;
+	/** 
+	 * Number of times {@link #maxLeaseTimeMs} expired, used to determine
+	 * when to abandon a connection (see {@link DbPool#evictThreshold})
+	 */
+	protected int leaseExpiredCount;
 
+	/** Creates this pooled connection and sets it's state to leased. */
 	public PooledConnection(final Connection dbConn, final long leaseTimeOutMs) {
 		super();
 		this.dbConn = dbConn;

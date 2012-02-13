@@ -59,6 +59,10 @@ import java.util.Map;
  * <br>Modified by (2010/03/02)
  * @author rayco_arana
  * <br>Copied from http://monetproject.git.sourceforge.net/git/gitweb.cgi?p=monetproject/monetproject;a=blob_plain;f=applications/loginservice/server/src/org/monet/loginservice/utils/NamedParameterStatement.java;hb=5325b37aa61543c6262e01b09fa5cb95b188383a
+ * <br>Modified by (2012/02/01)
+ * @author frederikw
+ * <br>Updated some comments, included this class in DbPool:
+ * <br>https://github.com/intercommit/DbPool
  */
 public class NamedParameterStatement {
 

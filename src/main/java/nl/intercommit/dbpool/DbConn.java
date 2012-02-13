@@ -169,4 +169,36 @@ public class DbConn {
 			closeLogger.warn("Failed to close result set: " + rs);
 		}
 	}
+	
+	/**
+	 * Utility method for constructing a prepared statement using the 'in' keyword.
+	 * <br>Copied from http://stackoverflow.com/questions/178479/preparedstatement-in-clause-alternatives.
+	 * <br>Usage:
+	 * <br> String SQL_FIND = "SELECT id, name, value FROM data WHERE id IN (%s)" 
+	 * <br> String sql = String.format(SQL_FIND, preparePlaceHolders(ids.size()));
+	 * <br> statement = connection.prepareStatement(sql);
+	 * <br> setValues(statement, ids.toArray());
+	 * <br> resultSet = statement.executeQuery();
+	 */
+	public static String preparePlaceHolders(final int length) {
+	    
+		StringBuilder sb = new StringBuilder();
+	    for (int i = 0; i < length;) {
+	        sb.append("?");
+	        if (++i < length) {
+	            sb.append(",");
+	        }
+	    }
+	    return sb.toString();
+	}
+
+	/** 
+	 * See {@link #preparePlaceHolders(int)}
+	 */
+	public static void setValues(final PreparedStatement preparedStatement, final Object... values) throws SQLException {
+	    for (int i = 0; i < values.length; i++) {
+	        preparedStatement.setObject(i + 1, values[i]);
+	    }
+	}
+
 }
