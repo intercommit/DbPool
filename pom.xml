@@ -4,7 +4,7 @@
 	<groupId>nl.intercommit</groupId>
 	<artifactId>dbpool</artifactId>
 	<name>Icit DbPool</name>
-	<version>1.0.3</version>
+	<version>1.0.4-SNAPSHOT</version>
 
 	<organization>
 		<name>InterCommIT b.v.</name>
