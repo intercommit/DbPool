@@ -181,7 +181,7 @@ public class DbPoolTimeOutWatcher implements Runnable {
 			sb.append("; the thread leasing the connection has terminated.\n");
 		} else {
 			if (threadInterrupted) {
-				sb.append("; the thread leasing the connection was terminated.\n");
+				sb.append("; the thread leasing the connection was interrupted.\n");
 			} else {
 				sb.append(".\n");
 			}
