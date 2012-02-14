@@ -4,7 +4,7 @@
 	<groupId>nl.intercommit</groupId>
 	<artifactId>dbpool</artifactId>
 	<name>Icit DbPool</name>
-	<version>1.0.3-SNAPSHOT</version>
+	<version>1.0.3</version>
 
 	<organization>
 		<name>InterCommIT b.v.</name>
@@ -126,6 +126,7 @@
 						<id>attach-sources</id>
 						<goals>
 							<goal>jar</goal>
+							<goal>test-jar</goal>
 						</goals>
 					</execution>
 				</executions>
