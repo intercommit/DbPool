@@ -20,13 +20,14 @@ package nl.intercommit.dbpool;
 
 import java.sql.Connection;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A helper class for {@link DbPool} which keeps track of several pool-properties for a database connection. 
  * Most of these properties are used by the {@link DbPoolTimeOutWatcher}. */
 public class PooledConnection {
 
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 	
 	/** The connection to the database which is pooled. */
 	public final Connection dbConn;
@@ -38,7 +39,7 @@ public class PooledConnection {
 	protected long maxLeaseTimeMs;
 	/** 
 	 * Number of times {@link #maxLeaseTimeMs} expired, used to determine
-	 * when to abandon a connection (see {@link DbPool#evictThreshold})
+	 * when to evict a connection (see {@link DbPool#evictThreshold})
 	 */
 	protected int leaseExpiredCount;
 

@@ -24,7 +24,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A helper class that makes it easy to fire a query, get results and cleanup.
@@ -141,7 +142,7 @@ public class DbConn {
 	}
 	
 	/** Logger used to log a warning when a close method encounters an error. */ 
-	public static Logger closeLogger = Logger.getLogger(DbConn.class);
+	public static Logger closeLogger = LoggerFactory.getLogger(DbConn.class);
 	
 	/** Closes s (checks for null-value), logs any error as warning using closeLogger. */
 	public static void close(final Statement s) {

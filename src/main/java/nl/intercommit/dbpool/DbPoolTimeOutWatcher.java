@@ -18,11 +18,13 @@
 */
 package nl.intercommit.dbpool;
 
+import java.lang.Thread.State;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** 
  * A thread running in the background that frequently (see {@link DbPool#timeOutWatchIntervalMs})
@@ -33,19 +35,23 @@ import org.apache.log4j.Logger;
  * <br> B - the database is very busy or the executed query takes a long time to complete
  * <br> C - the thread that is using a connection is hanging (e.g. waiting on I/O)
  * <br> When in testing/acceptance, set the {@link DbPool#maxLeaseTimeMs} at a low value so you can catch cases A and B.
- * <br> When in production, set the {@link DbPool#maxLeaseTimeMs} at a very high value 
+ * <br> When in production, set the {@link DbPool#maxLeaseTimeMs} at a high value 
  * (so you do not get endless amount of warnings when the database server is very busy)
- * and consider setting {@link #interrupt} to true. {@link #interrupt} may help unlock hanging threads.   
+ * and consider setting {@link #interrupt} to true. {@link #interrupt} may help unlock hanging threads.
+ * Also consider a good value for {@link DbPool#evictThreshold} to prevent the pool from locking the application
+ * when connections are not released (e.g. due to a programming error not found during testing).     
  * <br>If a lease-time has expired, a warning is logged with a stack-trace of the thread that acquired the connection.
- * The lease-time is then reset so that this warning will appear every max-lease-time period until 
+ * The lease-time is then reset so that this warning will appear only every max-lease-time period until 
  * the database connection is released back into the pool.
- * <br>Idle time-out checks depend on the LIFO nature of the {@link DbPool#idleConnections}'s queue.
+ * <br>When an evicted connection is released to the pool by the application, an additional warning message is shown
+ * (see documentation for {@link DbPool#release}).
+ * <br><br>Idle time-out checks depend on the LIFO nature of the {@link DbPool#idleConnections}'s queue.
  * @author frederikw
  *
  */
 public class DbPoolTimeOutWatcher implements Runnable {
 
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 	
 	protected volatile Thread runningThread;
 	protected volatile boolean stop;
@@ -56,9 +62,10 @@ public class DbPoolTimeOutWatcher implements Runnable {
 	
 	protected DbPool dbPool;
 	/** 
-	 * If true, threads that hold on to a database connection for longer 
-	 * then {@link DbPool#maxLeaseTimeMs}, will get interrupted. 
-	 * Use this with much care.  
+	 * If set to true, threads that lease a database connection for longer 
+	 * then {@link DbPool#maxLeaseTimeMs}, will get interrupted when the thread
+	 * is in one of the following states: {@link State#BLOCKED}, {@link State#WAITING}, {@link State#TIMED_WAITING}.  
+	 * <br>Use with care.  
 	 */
 	public boolean interrupt;
 
@@ -105,7 +112,7 @@ public class DbPoolTimeOutWatcher implements Runnable {
 	 * <br> - A warning is logged
 	 * <br>If max-lease time has expired for the {@link DbPool#evictThreshold}' time,
 	 * the connection is removed from the pool (a.k.a. evicted, see also 
-	 * {@link #evictConnection(PooledConnection, StackTraceElement[])}).
+	 * {@link #evictConnection(PooledConnection, StackTraceElement[], boolean, boolean)}).
 	 */
 	protected void checkLeaseTimeOut() {
 		
@@ -120,17 +127,26 @@ public class DbPoolTimeOutWatcher implements Runnable {
 				final StackTraceElement[] tstack = t.getStackTrace();
 				pc.dirty();
 				pc.leaseExpiredCount++;
-				if (dbPool.evictThreshold > 0 && pc.leaseExpiredCount >= dbPool.evictThreshold) {
-					evictConnection(pc, tstack);
+				boolean interrupted = false;
+				boolean evict = false;
+				if (interrupt && (t.getState() == State.BLOCKED 
+						|| t.getState() == State.WAITING
+						|| t.getState() == State.TIMED_WAITING)) {
+					t.interrupt();
+					interrupted = true;
+				} else if (t.getState() == State.TERMINATED) {
+					evict = true;
+				}
+				if (dbPool.evictThreshold > 0 && (evict || pc.leaseExpiredCount >= dbPool.evictThreshold)) {
+					evictConnection(pc, tstack, evict, interrupted);
 					continue;
 				}
 				expiredCount++;
-				if (interrupt) t.interrupt();
 				pc.resetWaitStart();
 				final StringBuilder sb = new StringBuilder("Lease time (");
 				sb.append(pc.getMaxLeaseTimeMs()).append(") expired for pooled database connection used by thread ");
 				sb.append(t.toString());
-				if (interrupt) sb.append(". Thread was interrupted.");
+				if (interrupted) sb.append(". Thread was interrupted.");
 				sb.append("\nStack trace from thread:\n");
 				addStackTrace(sb, tstack);
 				log.warn(sb.toString());
@@ -152,14 +168,24 @@ public class DbPoolTimeOutWatcher implements Runnable {
 	 * Evicts a pooled and leased connection from the pool. 
 	 * Does not close the connection.
 	 */
-	protected void evictConnection(final PooledConnection pc, final StackTraceElement[] tstack) {
+	protected void evictConnection(final PooledConnection pc, final StackTraceElement[] tstack,
+			final boolean threadTerminated, final boolean threadInterrupted) {
 		
 		final String connDesc = pc.dbConn.toString();
 		evictedCount++;
 		dbPool.connections.remove(pc.dbConn);
 		dbPool.connectionCount.decrementAndGet();
 		final StringBuilder sb = new StringBuilder("Evicting database connection from pool after lease time expired ");
-		sb.append(dbPool.evictThreshold).append(" times.\n");
+		sb.append(pc.leaseExpiredCount).append(" times");
+		if (threadTerminated) {
+			sb.append("; the thread leasing the connection has terminated.\n");
+		} else {
+			if (threadInterrupted) {
+				sb.append("; the thread leasing the connection was terminated.\n");
+			} else {
+				sb.append(".\n");
+			}
+		}
 		sb.append("Connection: ").append(connDesc);
 		sb.append("\nStack trace from thread:\n");
 		addStackTrace(sb, tstack);

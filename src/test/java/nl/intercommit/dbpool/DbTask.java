@@ -18,16 +18,19 @@
 */
 package nl.intercommit.dbpool;
 
+import static nl.intercommit.dbpool.TestUtil.insertRecord;
+import static nl.intercommit.dbpool.TestUtil.selectRecord;
+import static nl.intercommit.dbpool.TestUtil.str;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static nl.intercommit.dbpool.TestUtil.*;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DbTask implements Runnable {
 	
@@ -39,7 +42,7 @@ public class DbTask implements Runnable {
 	public static int numberOfSearches;
 	public static int queryTimeOutSeconds;
 	
-	Logger log = Logger.getLogger(getClass());
+	Logger log = LoggerFactory.getLogger(getClass());
 	DbConnTimed db;
 	boolean stop;
 	Thread runningThread;

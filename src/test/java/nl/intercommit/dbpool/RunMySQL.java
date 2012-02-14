@@ -23,7 +23,8 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.Properties;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RunMySQL {
 
@@ -31,7 +32,7 @@ public class RunMySQL {
 		new RunMySQL().testDbTasks();
 	}
 
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 
 	public static String createTable = "CREATE TABLE IF NOT EXISTS `t` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, name varchar(256), PRIMARY KEY (`id`))";
 
@@ -49,7 +50,7 @@ public class RunMySQL {
 		finally { try { in.close(); } catch (Throwable ignored) {} }
 		
 		final MySQLConnFactory dbuser = new MySQLConnFactory();
-		dbuser.log = Logger.getLogger(dbuser.getClass().getName() + ".TestDB");
+		dbuser.log = LoggerFactory.getLogger(dbuser.getClass().getName() + ".TestDB");
 		if (dbprops.getProperty("db.url") != null) dbuser.dbUrl = dbprops.getProperty("db.url").trim();
 		
 		Iterator<Object> propKeys = dbprops.keySet().iterator();
@@ -61,7 +62,7 @@ public class RunMySQL {
 		}
 		
 		pool = new DbPool();
-		pool.log = Logger.getLogger(getClass().getName() + ".TestDBPool");
+		pool.log = LoggerFactory.getLogger(getClass().getName() + ".TestDBPool");
 		pool.maxSize = Integer.valueOf(dbprops.getProperty("db.pool.maxConnections", "3"));
 		pool.setFactory(dbuser);
 		pool.maxLeaseTimeMs = Long.valueOf(dbprops.getProperty("db.pool.maxLeaseTimeMs", "0"));

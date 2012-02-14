@@ -1,8 +1,8 @@
 package nl.intercommit.dbpool;
 
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
 
-import static org.junit.Assert.*;
+import org.junit.Test;
 
 public class TestIdle {
 
@@ -23,7 +23,7 @@ public class TestIdle {
 			assertEquals("Closed idle connections should be 2", 2, pool.getWatcher().idledCount);
 		} catch (Exception se) {
 			se.printStackTrace();
-			throw new AssertionError("DbInMem test failed with: " + se);
+			throw new AssertionError(se);
 		} finally {
 			if (db != null) db.close();
 			pool.close();

@@ -3,11 +3,12 @@ package nl.intercommit.dbpool;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HibernateCP extends HibernateConnectionProvider {
 
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 
 	@Override
 	public Connection getConnection() throws SQLException {

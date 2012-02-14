@@ -1,19 +1,20 @@
 package nl.intercommit.dbpool;
 
-import static org.junit.Assert.*;
+import static nl.intercommit.dbpool.TestUtil.clearDbInMem;
+import static nl.intercommit.dbpool.TestUtil.createTable;
+import static org.junit.Assert.assertEquals;
 
-import org.apache.log4j.Logger;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 import org.junit.Test;
-
-import static nl.intercommit.dbpool.TestUtil.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestHibernate {
 
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 
 	/** Use hibernate with a database pool to insert and update a record. 
 	 * Tests the HibernateConnectionProvider. */
@@ -62,7 +63,7 @@ public class TestHibernate {
 			assertEquals("Database connection must be released", 1, pool.getCountIdleConnections());
 		} catch (Exception se) {
 			se.printStackTrace();
-			throw new AssertionError("Hibernate DbInMem test failed with: " + se);
+			throw new AssertionError(se);
 		} finally {
 			Exception error = null;
 			if (session != null) try { session.close(); } catch (Exception e) {

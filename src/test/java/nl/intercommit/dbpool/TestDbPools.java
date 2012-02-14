@@ -18,18 +18,24 @@
 */
 package nl.intercommit.dbpool;
 
-import static org.junit.Assert.*;
+import static nl.intercommit.dbpool.TestUtil.clearDbInMem;
+import static nl.intercommit.dbpool.TestUtil.createTable;
+import static nl.intercommit.dbpool.TestUtil.initDbInMem;
+import static nl.intercommit.dbpool.TestUtil.insertRecord;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
 import java.sql.Statement;
 
-import org.apache.log4j.Logger;
 import org.junit.Test;
-import static nl.intercommit.dbpool.TestUtil.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestDbPools {
 	
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 	
 	@Test
 	public void testMysqlProps() {

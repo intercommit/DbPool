@@ -11,7 +11,7 @@ import org.junit.Test;
 
 public class TestEvict {
 
-	// TODO: write a test that removes idle database connections while connections are being used.
+	// TODO: write a test that evicts database connections while connections are being used.
 	@Test
 	public void testEvictSimple() {
 		
@@ -26,12 +26,11 @@ public class TestEvict {
 			db = new DbConn(pool);
 			db.setQuery("SELECT 1 FROM INFORMATION_SCHEMA.SYSTEM_USERS");
 			Thread.sleep(200L);
-			// Connection is evicted, from pool, there should be no connection in the pool.
-			assertEquals("After connection is evicted from pool, there should be no connections in the pool", 0, pool.connectionCount.get());
+			assertEquals("After connection is evicted from pool, there should be no connections in the pool", 0, pool.getCountOpenConnections());
 			assertFalse("An evicted connection should not be closed.", db.conn.isClosed());
-		} catch (Exception se) {
-			se.printStackTrace();
-			throw new AssertionError("DbInMem test failed with: " + se);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new AssertionError(e);
 		} finally {
 			// db.close() calls pool.release(connection) which should close the connection.
 			if (db != null) {

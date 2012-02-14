@@ -29,7 +29,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages database connections in a pool.
@@ -67,7 +68,7 @@ import org.apache.log4j.Logger;
  */
 public class DbPool {
 
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 	
 	/** Minimum amount of connections in the pool. Default 1. */
 	public int minSize = 1;

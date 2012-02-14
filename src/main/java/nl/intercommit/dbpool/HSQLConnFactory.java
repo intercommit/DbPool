@@ -23,11 +23,12 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HSQLConnFactory implements DbConnFactory {
 	
-	protected Logger log = Logger.getLogger(getClass());
+	protected Logger log = LoggerFactory.getLogger(getClass());
 	protected boolean initialized;
 
 	public String dbDriverClass = "org.hsqldb.jdbc.JDBCDriver";
