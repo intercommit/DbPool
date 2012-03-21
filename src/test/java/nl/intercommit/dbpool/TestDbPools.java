@@ -95,8 +95,10 @@ public class TestDbPools {
 		DbPool pool = new DbPool();
 		pool.maxSize = 3;
 		pool.setFactory(new HSQLConnFactory());
-		pool.maxLeaseTimeMs = 300L;
-		pool.timeOutWatchIntervalMs = 10L;
+		DbPoolWatcher poolWatcher = new DbPoolWatcher(pool);
+		pool.setWatcher(poolWatcher);
+		poolWatcher.maxLeaseTimeMs = 300L;
+		poolWatcher.timeOutWatchIntervalMs = 10L;
 		DbTask.maxSleep = 100L;
 		DbTask.numberOfInserts = 3;
 		DbTask.numberOfSearches = 3;
@@ -114,6 +116,7 @@ public class TestDbPools {
 			//pool.connFactory.close(pool.connections.keySet().iterator().next());
 			//pool.flush();
 			//Thread.sleep(1000);
+			System.out.println(pool.getStatusInfo());
 			for (int i = 0; i < taskCount; i++) tasks[i].stop();
 			boolean tasksRunning = true;
 			while (tasksRunning) {

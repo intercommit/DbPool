@@ -32,6 +32,10 @@ public interface DbConnFactory {
 	void close(Connection dbConn);
 	/** Closes a database connection, tries to perform a rollback if rollback is true. */
 	void close(Connection dbConn, boolean rollback);
+	/** Describes the general URL for the database location. May not return null (empty string is allowed). */
+	String getUrl();
+	/** Describes the user which is used to login onto the database. May not return null (empty string is allowed). */
+	String getUser();
 	
 	/** 
 	 * The default toString() method should be overridden to return information

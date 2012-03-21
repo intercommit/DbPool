@@ -39,19 +39,19 @@ import org.slf4j.LoggerFactory;
  * and {@link #open(boolean)} must be called.
  * <br> This class contains various public fields that can be used to tune the behavior of the pool.
  * By default, the pool does the following:
- * <br> - close and remove connections not used for 1 minute (see {@link #maxIdleTimeMs})
+ * <br> - close and remove connections not used for 1 minute (see {@link DbPoolWatcher#maxIdleTimeMs})
  * <br> - validate connections before leasing them out (see {@link DbConnFactory#validate(Connection)}).
  * If a connection is not valid, it is removed silently and another connection from the pool is fetched
  * (which is also validated etc.). 
  * <br> - warn if connections are not returned to the pool within 2 minutes 
- * (see {@link #maxLeaseTimeMs} and {@link DbPoolTimeOutWatcher})
+ * (see {@link DbPoolWatcher#maxLeaseTimeMs})
  * <br> - evict connections from the pool when they do not return within 6 minutes
- * (see {@link #evictThreshold} and {@link DbPoolTimeOutWatcher} 
+ * (see {@link DbPoolWatcher#evictThreshold}) 
  * <br><br>
  * Connections can be marked as dirty (see {@link #setDirty(Connection)}) 
  * to prevent connections from being re-used by this pool.
  * DbPool checks the dirty-property on check-out (acquire) and check-in (release).
- * DbPool marks connections as dirty when {@link #maxLeaseTimeMs} has expired. 
+ * DbPool marks connections as dirty when {@link DbPoolWatcher#maxLeaseTimeMs} has expired. 
  * DbPool also uses this property internally to {@link #flush()} the connection pool.
  * <br><br>
  * Connections are created synchronous (one at a time).
@@ -74,28 +74,16 @@ public class DbPool {
 	public int minSize = 1;
 	/** Maximum amount of connections in the pool. Default 10. */
 	public int maxSize = 10;
-	/** 
-	 * Maximum time a connection can be leased. Default 2 minutes. Value 0 means no lease time out.
-	 * <br>An expired connection is marked as dirty but still counts as an open connection.
-	 * Only after a connection is evicted (see {@link #evictThreshold}), 
-	 * there will be room in the pool for a new connection (when the pool has reached {@link #maxSize}).
-	 */
-	public long maxLeaseTimeMs = 120000L;
-	/** 
-	 * The amount of times that a connection can expire ({@link #maxLeaseTimeMs}) 
-	 * after which a connection is considered lost and removed (evicted) from the pool (but not closed).
-	 * <br>Default 3, value 0 means never evict a connection.
-	 * <br>Set to 1 to evict a connection from the pool when {@link #maxLeaseTimeMs} has expired.
-	 */
-	public int evictThreshold = 3;
-	/** Maximum time a connection can be idle. Default 1 minute. Value 0 means no idle time out. */
-	public long maxIdleTimeMs = 60000L;
-	/** The frequency at which the time-out watcher will check for expired leases and idle connections. */
-	public long timeOutWatchIntervalMs = 1000L;
 	/** The maximum time it may take to get a connection from the pool. */
 	public long maxAcquireTimeMs = 50000L;
-	/** Number of connections created. */
+	/** 
+	 * Number of connections created.
+	 * <br>This should be equal to {@link DbPool#connectionsInvalid} + {@link DbPoolWatcher#evictedCount}
+	 *  + {@link DbPoolWatcher#idledCount}
+	 */
 	public AtomicLong connectionsCreated = new AtomicLong();
+	/** Number of connections removed from pool because they were invalid. */
+	public AtomicLong connectionsInvalid = new AtomicLong();
 	
 	/** All connections in the pool. */
 	protected Map<Connection, PooledConnection> connections = new ConcurrentHashMap<Connection, PooledConnection>();
@@ -107,8 +95,8 @@ public class DbPool {
 	protected final AtomicInteger connectionCount = new AtomicInteger(); 
 	/** The connection factory used to create new connections. */
 	protected DbConnFactory connFactory;
-	/** The time-out watcher keeping a watch on idle connections and leased connections that do not return to the pool. */
-	protected DbPoolTimeOutWatcher timeOutWatcher;
+	/** The pool watcher keeping a watch on idle connections and leased connections that do not return to the pool. */
+	protected DbPoolWatcher poolWatcher = new DbPoolWatcher(this);
 	/** Indicates if this pool was closed (in which it cannot be opened again). */
 	protected volatile boolean closed;
 	
@@ -118,7 +106,7 @@ public class DbPool {
 	public void setFactory(final DbConnFactory cf) { connFactory = cf; }
 	
 	/** 
-	 * Used to start the {@link #timeOutWatcher} (only when {@link #maxLeaseTimeMs}/{@link #maxIdleTimeMs} > 0)
+	 * Used to start the {@link #poolWatcher} (only when {@link DbPoolWatcher#maxLeaseTimeMs}/{@link DbPoolWatcher#maxIdleTimeMs} > 0)
 	 */
 	public void execute(final Runnable r, final boolean daemon) { 
 		
@@ -129,7 +117,7 @@ public class DbPool {
 
 	/**
 	 * Opens the database pool, initializes the minimum amount of connections and 
-	 * starts the connection time-out watcher if {@link #maxLeaseTimeMs}/{@link #maxIdleTimeMs} > 0. 
+	 * starts the connection time-out watcher if {@link DbPoolWatcher#maxLeaseTimeMs}/{@link DbPoolWatcher#maxIdleTimeMs} > 0. 
 	 * @param failOnConnectionError If true, a SQLException is thrown when the minimum amount 
 	 * of connections to the database could not be created (else an error is logged but the pool is opened).
 	 * @throws SQLException When the pool was previously closed 
@@ -155,14 +143,16 @@ public class DbPool {
 			log.error("Could not initialize minimum amount of connections for database pool (acquired " + i + " of " + minSize +")." +
 					" Used connection factory: " + connFactory, sqle);
 		}
-		if (maxLeaseTimeMs > 0L || maxIdleTimeMs > 0L) {
-			timeOutWatcher = new DbPoolTimeOutWatcher(this);
-			execute(timeOutWatcher, true);
+		if (poolWatcher != null && (poolWatcher.maxLeaseTimeMs > 0L || poolWatcher.maxIdleTimeMs > 0L)) {
+			execute(poolWatcher, true);
 		}
 	}
 	
+	/** Sets a {@link DbPoolWatcher}. The watcher is started when the pool is opened (see {@link #open(boolean)}). */
+	public void setWatcher(DbPoolWatcher timeOutWatcher) { this.poolWatcher= timeOutWatcher ; }
 	/** The time-out watcher, if any (only available after pool is opened and maxLeaseTimeMs/maxIdleTimeMs > 0). */
-	public DbPoolTimeOutWatcher getWatcher() { return timeOutWatcher; }
+	public DbPoolWatcher getWatcher() { return poolWatcher; }
+
 	/** Amount of connections available for usage (i.e. ready to be acquired). */
 	public int getCountIdleConnections() { return connLeaser.availablePermits(); }
 	/** Amount of connections in the pool. */
@@ -170,13 +160,13 @@ public class DbPool {
 	/** Amount of connections being used (i.e. waiting for release). */
 	public int getCountUsedConnections() { return connectionCount.get() - connLeaser.availablePermits(); }
 	
-	/** Gets a connection from the pool within maxAcquireTimeMs. Sets maxLeaseTimeMs for the pooled connection. */
+	/** Gets a connection from the pool within {@link #maxAcquireTimeMs}. Sets {@link DbPoolWatcher#maxLeaseTimeMs} for the pooled connection. */
 	public Connection acquire() throws SQLException { 
-		return acquire(maxAcquireTimeMs, maxLeaseTimeMs); 
+		return acquire(maxAcquireTimeMs, (poolWatcher == null ? 0L : poolWatcher.maxLeaseTimeMs)); 
 	}
-	/** Gets a connection from the pool within {@link #maxAcquireTimeMs}. Sets {@link #maxLeaseTimeMs} for the pooled connection. */
+	/** Gets a connection from the pool within acquireTimeOutMs. Sets {@link DbPoolWatcher#maxLeaseTimeMs} for the pooled connection. */
 	public Connection acquire(final long acquireTimeOutMs) throws SQLException{ 
-		return acquire(acquireTimeOutMs, maxLeaseTimeMs); 
+		return acquire(acquireTimeOutMs, (poolWatcher == null ? 0L : poolWatcher.maxLeaseTimeMs)); 
 	}
 	
 	/** Gets a connection from the pool within acquireTimeOutMs. Sets leaseTimeOutMs for the pooled connection. */
@@ -206,6 +196,7 @@ public class DbPool {
 					catch (SQLException sqle) {
 						log.info("Database connection from pool is invalid: " + sqle);
 						pc.dirty();
+						connectionsInvalid.incrementAndGet();
 					}
 				}
 				if (pc.isDirty()) {
@@ -271,7 +262,7 @@ public class DbPool {
 	 * <br>"Database connection is already released".
 	 * <br> - If the connection is marked as dirty, the connection 
 	 * is removed from the pool and closed (no warning is logged).
-	 * <br> - If a connection was evicted (see {@link #evictThreshold}) 
+	 * <br> - If a connection was evicted (see {@link DbPoolWatcher#evictThreshold}) 
 	 * or is not part of this pool, a warning is logged: 
 	 * <br>"Cannot release a database connection that is not in the pool".
 	 * In this case, the connection will only be closed. 
@@ -332,7 +323,7 @@ public class DbPool {
 	public synchronized void close() {
 		
 		if (!closed) closed();
-		if (timeOutWatcher != null) timeOutWatcher.stop();
+		if (poolWatcher != null) poolWatcher.stop();
 		Iterator<PooledConnection> pcs = connections.values().iterator();
 		int closedConnections = 0;
 		while (pcs.hasNext()) {
@@ -341,5 +332,62 @@ public class DbPool {
 		}
 		connections.clear();
 		log.info("Closed " + closedConnections + " database connection(s) for pool " + connFactory + ", total connections created: " + connectionsCreated.get());
+	}
+	
+	@Override
+	public String toString() {
+		return (connFactory == null) ? super.toString() : getClass().getSimpleName()+":"+connFactory.getUser()+"@"+connFactory.getUrl();
+	}
+	
+	/** 
+	 * Retrieves general information and statistics from this pool.
+	 * Can only be used after a connection factory ({@link #setFactory(DbConnFactory)})
+	 * has been set.  
+	 * */
+	public String getStatusInfo() {
+		
+		final String lf = System.getProperty("line.separator");
+		StringBuilder sb = new StringBuilder("Status of database pool");
+		sb.append(" ").append(connFactory.toString()).append(lf);
+		
+		sb.append(lf).append("Type: ").append(connFactory.getClass().getSimpleName());
+		sb.append(lf).append("URL : ").append(connFactory.getUrl());
+		sb.append(lf).append("User: ").append(connFactory.getUser()).append(lf);
+		
+		sb.append(lf).append("Used connections: ").append(getCountUsedConnections());
+		sb.append(lf).append("Open connections: ").append(getCountOpenConnections())
+		.append(" (minimum: ").append(minSize).append(", maximum: ").append(maxSize).append(")").append(lf);
+		
+		sb.append(lf).append("Created connections       : ").append(connectionsCreated.get());
+		sb.append(lf).append("Closed invalid connections: ").append(connectionsInvalid.get());
+		if (poolWatcher != null) {
+			if (poolWatcher.maxIdleTimeMs == 0L) {
+				sb.append(lf).append("Not watching idle connections.");
+			} else {
+				sb.append(lf).append("Closed idle connections   : ").append(poolWatcher.idledCount)
+				.append(" (maximum idle time: ").append(poolWatcher.maxIdleTimeMs).append(")");
+			}
+			if (poolWatcher.maxLeaseTimeMs == 0L) {
+				sb.append(lf).append("Not watching for expired leases.");
+			} else {
+				sb.append(lf).append("Number of expired leases  : ").append(poolWatcher.expiredCount)
+				.append(" (maximum lease time: ").append(poolWatcher.maxLeaseTimeMs).append(", interrupt expired connections: ")
+				.append(poolWatcher.interrupt).append(")");
+				if (poolWatcher.evictThreshold == 0) {
+					sb.append(lf).append("Not evicting connections.");
+				} else {
+					sb.append(lf).append("Evicted connections       : ").append(poolWatcher.evictedCount)
+					.append(" (close evicted connections: ").append(poolWatcher.closeEvicted)
+					.append(", only when user has terminated: ").append(poolWatcher.closeEvictedOnlyWhenUserTerminated).append(")");
+					sb.append(lf).append("Number of times a lease on a connection can expire before it is evicted: ")
+					.append(poolWatcher.evictThreshold);
+				}
+			}
+			sb.append(lf).append("Time-out watch interval   : ").append(poolWatcher.timeOutWatchIntervalMs);
+		}
+		sb.append(lf);
+		sb.append(lf).append("Maximum connection acquire time: ").append(maxAcquireTimeMs);
+		sb.append(lf).append("Time values are in milliseconds.").append(lf);
+		return sb.toString();
 	}
 }

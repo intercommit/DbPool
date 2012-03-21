@@ -4,6 +4,8 @@ import static nl.intercommit.dbpool.TestUtil.clearDbInMem;
 import static nl.intercommit.dbpool.TestUtil.createTable;
 import static org.junit.Assert.assertEquals;
 
+//import java.sql.Connection;
+
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -17,33 +19,40 @@ public class TestHibernate {
 	protected Logger log = LoggerFactory.getLogger(getClass());
 
 	/** Use hibernate with a database pool to insert and update a record. 
-	 * Tests the HibernateConnectionProvider. */
+	 * Tests the HibernateConnectionProvider. 
+	 * <br>To see all Hibernate info, set log-level for the "org" category to INFO instead of WARN.
+	 */
 	@Test
 	public void testHibernateDbInMem() {
 		
-		DbPool pool = new DbPool();
-		HSQLConnFactory fact = new HSQLConnFactory();
-		fact.autoCommit = true;
-		pool.setFactory(fact);
-		// Register the dbpool.
-		HibernateConnectionProvider.dbPoolsByUrl.put(fact.dbUrl, pool);
-		// Setup Hibernate configuration (usually done via hibernate.cfg.xml)
+		/* 
+		 * Setup Hibernate configuration manually (usually done via hibernate.cfg.xml).
+		 * Note that Hibernate automatic configuration via hibernate.cfg.xml is still very much possible,
+		 * see the "HibernateTestCP" class. The only thing that must be specified in the hibernate.cfg.xml-file
+		 * is the Hibernate property "hibernate.connection.provider_class".
+		*/
 		Configuration configuration = new Configuration();
 		// Set the dbpool connection provider.
-		configuration.setProperty(Environment.CONNECTION_PROVIDER, "nl.intercommit.dbpool.HibernateCP");
-		configuration.setProperty(Environment.URL, fact.dbUrl);
-		configuration.setProperty(Environment.AUTOCOMMIT, Boolean.toString(fact.autoCommit));
-		// Disable cache so that all expected queries are executed.
-		configuration.setProperty(Environment.USE_SECOND_LEVEL_CACHE, "false");
-		configuration.setProperty(Environment.SHOW_SQL, "true");
+		configuration.setProperty(Environment.CONNECTION_PROVIDER, "nl.intercommit.dbpool.HibernateTestCP");
 		configuration.addAnnotatedClass(T.class);
 		SessionFactory sessionFactory = null;
 		Session session = null;
+		//Connection c = null;
+		DbPool pool = null;
 		try {
-			pool.open(true);
-			clearDbInMem(pool);
-			// To see all Hibernate info, set log-level for the "org" category to INFO instead of WARN.
 			sessionFactory = configuration.buildSessionFactory();
+			
+			// Cannot get a JDBC connection directly (deprecated):
+			// clearDbInMem(sessionFactory.getCurrentSession().connection());
+			// So instead lookup pool and use connection from there.
+			
+			pool = HibernateConnectionProvider.dbPoolsByUrl.get(HibernateTestCP.testDbUrl);
+			
+			// also an option for this test-class:
+			// pool = HibernateTestCP.instance.dbPool;
+			
+			clearDbInMem(pool);
+			
 			assertEquals("Database connections must not be used", 1, pool.getCountIdleConnections());
 			session = sessionFactory.openSession();
 			session.createSQLQuery(createTable).executeUpdate();
@@ -61,6 +70,7 @@ public class TestHibernate {
 			assertEquals("Name must match last saved value", "Frederik Wiers", t.getName());
 			session.close();
 			assertEquals("Database connection must be released", 1, pool.getCountIdleConnections());
+			assertEquals("Amount of connections acquired and released", HibernateTestCP.instance.fetchCount.get(), HibernateTestCP.instance.releaseCount.get());
 		} catch (Exception se) {
 			se.printStackTrace();
 			throw new AssertionError(se);

@@ -126,7 +126,9 @@ public class MySQLConnFactory implements DbConnFactory {
 	}
 
 	@Override
-	public String toString() {
-		return dbUrl;
-	}
+	public String getUrl() { return dbUrl; }
+	@Override
+	public String getUser() { return mysqlProps.getProperty("user", ""); }
+	@Override
+	public String toString() { return dbUrl; }
 }

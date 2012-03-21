@@ -12,9 +12,11 @@ public class TestInterrupt {
 	public void testInterruptSimple() {
 		
 		DbPool pool = new DbPool();
-		pool.maxLeaseTimeMs = 60L;
-		pool.evictThreshold = 2;
-		pool.timeOutWatchIntervalMs = 30L;
+		DbPoolWatcher poolWatcher = new DbPoolWatcher(pool);
+		pool.setWatcher(poolWatcher);
+		poolWatcher.maxLeaseTimeMs = 60L;
+		poolWatcher.evictThreshold = 2;
+		poolWatcher.timeOutWatchIntervalMs = 30L;
 		pool.setFactory(new HSQLConnFactory());
 		DbConn db = null;
 		try {

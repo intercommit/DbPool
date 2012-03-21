@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** A helper class for {@link DbPool} which keeps track of several pool-properties for a database connection. 
- * Most of these properties are used by the {@link DbPoolTimeOutWatcher}. */
+ * Most of these properties are used by the {@link DbPoolWatcher}. */
 public class PooledConnection {
 
 	protected Logger log = LoggerFactory.getLogger(getClass());
@@ -38,8 +38,8 @@ public class PooledConnection {
 	protected boolean leased;
 	protected long maxLeaseTimeMs;
 	/** 
-	 * Number of times {@link #maxLeaseTimeMs} expired, used to determine
-	 * when to evict a connection (see {@link DbPool#evictThreshold})
+	 * Number of times {@link DbPoolWatcher#maxLeaseTimeMs} expired, used to determine
+	 * when to evict a connection (see {@link DbPoolWatcher#evictThreshold})
 	 */
 	protected int leaseExpiredCount;
 

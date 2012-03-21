@@ -1,8 +1,14 @@
 package nl.intercommit.dbpool;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class TestUtil {
+
+	protected static Logger log = LoggerFactory.getLogger(TestUtil.class);
 
 	public static String createTable = "create table t (id integer generated always as identity(start with 100) primary key, name varchar(256))";
 	public static String deleteTable = "drop table t";
@@ -12,28 +18,56 @@ public class TestUtil {
 	/** Deletes any created tables. */
 	public static void clearDbInMem(DbPool pool) {
 		
-		DbConn db = new DbConn(pool);
+		Connection c = null;
+		try {
+			clearDbInMem(c = pool.acquire());
+		} catch (SQLException sqle) {
+			log.info("Could not clear db in mem, or db already clear: " + sqle);
+		} finally {
+			pool.release(c);
+		}
+	}
+
+		
+	/** Deletes any created tables. */
+	public static void clearDbInMem(Connection c) {
+		
+		DbConn db = new DbConn(c);
 		try {
 			db.setQuery(deleteTable);
 			db.ps.execute();
 			db.conn.commit();
-		} catch (Exception ignored) {
+		} catch (Exception sqle) {
+			log.info("Could not clear db in mem, or db already clear: " + sqle);
 		} finally {
-			db.close();
+			db.closeQuery();
 		}
 	}
 
 	/** Creates required tables. */
 	public static void initDbInMem(DbPool pool) throws SQLException {
+
+		Connection c = null;
+		try {
+			initDbInMem(c = pool.acquire());
+		} catch (SQLException sqle) {
+			log.warn("Could not init db in mem: " + sqle);
+		} finally {
+			pool.release(c);
+		}
+	}
 		
-		clearDbInMem(pool);
-		DbConn db = new DbConn(pool);
+	/** Creates required tables. */
+	public static void initDbInMem(Connection c) throws SQLException {
+		
+		clearDbInMem(c);
+		DbConn db = new DbConn(c);
 		try {
 			db.setQuery(createTable);
 			db.ps.execute();
 			db.conn.commit();
 		} finally {
-			db.close();
+			db.closeQuery();
 		}
 	}
 	

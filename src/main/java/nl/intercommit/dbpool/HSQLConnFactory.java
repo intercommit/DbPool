@@ -103,7 +103,9 @@ public class HSQLConnFactory implements DbConnFactory {
 	}
 
 	@Override
-	public String toString() {
-		return dbUrl;
-	}
+	public String getUrl() { return dbUrl; }
+	@Override
+	public String getUser() { return hsqlProps.getProperty("user", ""); }
+	@Override
+	public String toString() { return dbUrl; }
 }

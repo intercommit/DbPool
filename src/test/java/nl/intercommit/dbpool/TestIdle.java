@@ -12,8 +12,10 @@ public class TestIdle {
 		
 		DbPool pool = new DbPool();
 		pool.minSize = 3;
-		pool.maxIdleTimeMs = 100L;
-		pool.timeOutWatchIntervalMs = 50L;
+		DbPoolWatcher poolWatcher = new DbPoolWatcher(pool);
+		pool.setWatcher(poolWatcher);
+		poolWatcher.maxIdleTimeMs = 100L;
+		poolWatcher.timeOutWatchIntervalMs = 50L;
 		pool.setFactory(new HSQLConnFactory());
 		DbConn db = null;
 		try {
