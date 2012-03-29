@@ -45,16 +45,20 @@ import org.slf4j.LoggerFactory;
  */
 public class DbConn {
 
-	/** The database pool from the contructor. */
+	/** Database pool to acquire and release a connection. */
 	public DbPool pool;
-	/** An actual database connection, set when getConnection() is called. */
+	/** Connection factory to get and close a connection. Used when {@link #pool} is null. */
+	public DbConnFactory connFactory;
+	/** An actual database connection, provided by implementation or set when {@link #getConnection()} is called. */
 	public Connection conn;
-	/** A prepared statement, set when setQuery() is called. */
+	/** A prepared statement, set when {@link #setQuery(String)} is called. */
 	public PreparedStatement ps;
-	/** A named prepared statement, set when setNQuery() is called. */
+	/** A named prepared statement, set when {@link #setNQuery(String)} is called. */
 	public NamedParameterStatement nps;
 	/** A resultset, can be used as placeholder for the query results of one query. */
 	public ResultSet rs;
+	
+	public DbConn() { super(); }
 	
 	/** Sets {@link #pool} to given pool. */
 	public DbConn(final DbPool pool) {
@@ -62,10 +66,16 @@ public class DbConn {
 		this.pool = pool;
 	}
 	
-	/** Sets {@link #conn} to given open database connection. */
-	public DbConn(final Connection c) {
+	/** Sets {@link #connFactory} to the given connection factory. */
+	public DbConn(final DbConnFactory connFactory) {
 		super();
-		this.conn = c;
+		this.connFactory = connFactory;
+	}
+
+	/** Sets {@link #connFactory} to the given connection. */
+	public DbConn(final Connection conn) {
+		super();
+		this.conn = conn;
 	}
 
 	/** Closes {@link #rs}, {@link #ps} and {@link #nps} (if not null), but does not release or close the database connection.
@@ -77,11 +87,20 @@ public class DbConn {
 		if (nps != null) { close(nps); nps = null; }
 	}
 	
-	/** Acquires a connection from the pool, but only when {@link #conn} is null. */
+	/** 
+	 * Acquires a connection from the {@link #pool} or {@link #connFactory}, but only when {@link #conn} is null. 
+	 * Sets {@link #conn} to the new connection.
+	 */
 	public Connection getConnection() throws SQLException {
 		
 		if (conn == null) {
-			conn = pool.acquire();
+			if (pool != null) {
+				conn = pool.acquire();
+			} else if (connFactory != null) {
+				conn = connFactory.getConnection();
+			} else {
+				throw new SQLException("Database connection not set and there is no database pool or connection factory available to get a new database connection.");
+			}
 		}
 		return conn;
 	}
@@ -137,12 +156,14 @@ public class DbConn {
 	public void close() {
 		closeQuery();
 		if (conn != null) {
-			if (pool == null) {
+			if (pool != null) {
+				pool.release(conn);
+			} else if (connFactory != null) {
+				connFactory.close(conn);
+			} else {
 				try { conn.close(); } catch (SQLException sqle) {
 					closeLogger.warn("Failed to close a database connection: " + sqle);
 				}
-			} else {
-				pool.release(conn);
 			}
 			conn = null;
 		}
