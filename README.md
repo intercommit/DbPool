@@ -3,6 +3,9 @@ DbPool
 
 A bare-bone (JDBC) database pool, used in our 24x7 production systems.
 
+DEPRECATED: development on this project has stopped. 
+DbPool is now part of Yapool (http://yapool.googlecode.com/).
+
 Like SocketDistrib (https://github.com/intercommit/SocketDistrib)
 it is small (10 classes) and fast (using Java concurrent).
 DbPool was designed to release only valid connections from the pool.
